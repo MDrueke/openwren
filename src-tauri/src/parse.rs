@@ -333,9 +333,54 @@ pub fn attachment_bytes(raw: &[u8], index: usize) -> Option<Vec<u8>> {
     Some(part.contents().to_vec())
 }
 
+/// The `index`-th real attachment as (file name, content type, bytes), for sending it on.
+pub fn attachment_part(raw: &[u8], index: usize) -> Option<(String, String, Vec<u8>)> {
+    let msg = MessageParser::default().parse(raw)?;
+    let part = msg.attachments().filter(|p| p.content_id().is_none()).nth(index)?;
+    let name = part.attachment_name().unwrap_or("attachment").to_string();
+    let mime_type = match part.content_type() {
+        Some(kind) => match kind.subtype() {
+            Some(subtype) => format!("{}/{}", kind.ctype(), subtype),
+            None => kind.ctype().to_string(),
+        },
+        None => "application/octet-stream".to_string(),
+    };
+    Some((name, mime_type, part.contents().to_vec()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_attachment_can_be_taken_out_to_forward_it() {
+        let raw = b"From: a@b.example\r\nSubject: Report\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"x\"\r\n\r\n\
+--x\r\nContent-Type: text/plain\r\n\r\nSee attached.\r\n\
+--x\r\nContent-Type: application/pdf; name=\"report.pdf\"\r\nContent-Disposition: attachment; filename=\"report.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\nJVBERi0xLjQ=\r\n\
+--x\r\nContent-Type: text/csv; name=\"data.csv\"\r\nContent-Disposition: attachment; filename=\"data.csv\"\r\n\r\na,b\r\n1,2\r\n\
+--x--\r\n";
+        assert_eq!(attachment_part(raw, 0), Some(("report.pdf".to_string(), "application/pdf".to_string(), b"%PDF-1.4".to_vec())));
+        let (name, kind, data) = attachment_part(raw, 1).unwrap();
+        assert_eq!((name.as_str(), kind.as_str()), ("data.csv", "text/csv"));
+        assert!(data.starts_with(b"a,b"));
+        assert!(attachment_part(raw, 2).is_none());
+
+        // Sent on in a new message, both files arrive intact.
+        let files = (0..2).map(|i| attachment_part(raw, i).unwrap()).map(|(name, mime_type, data)| crate::smtp::FilePart { name, mime_type, data }).collect();
+        let built = crate::smtp::build(&crate::smtp::Outgoing {
+            from_name: "Katy".into(),
+            from_address: "katy@work.test".into(),
+            to: "mona@contoso.example".into(),
+            subject: "Fw: Report".into(),
+            html: "<p>See below.</p>".into(),
+            files,
+            ..Default::default()
+        })
+        .unwrap();
+        let sent = parse_body(&built.raw);
+        assert_eq!(sent.attachments.iter().map(|a| a.name.as_str()).collect::<Vec<_>>(), ["report.pdf", "data.csv"]);
+        assert_eq!(attachment_bytes(&built.raw, 0).unwrap(), b"%PDF-1.4");
+    }
 
     #[test]
     fn decodes_encoded_names_and_subjects() {

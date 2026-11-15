@@ -122,6 +122,8 @@ export interface Draft {
   attachments: string[];
   /** True for replies and forwards, which may use a different default signature. */
   isReply: boolean;
+  /** When forwarding: the original message and which of its attachments go along. */
+  forwarded?: { messageId: number; items: { index: number; name: string; size: number }[] };
 }
 
 /** A draft as the mail engine stores it; `content` is a Draft as JSON. */
@@ -147,6 +149,8 @@ export interface Outgoing {
   inReplyTo: string | null;
   references: string | null;
   attachments: string[];
+  /** Attachments of a stored message to send along, when forwarding it. */
+  forwarded: { messageId: number; indexes: number[] } | null;
   /** Pictures inside the message, referred to as `cid:<cid>` in the HTML. */
   inlineImages: { cid: string; dataUrl: string }[];
   /** Unix seconds. */

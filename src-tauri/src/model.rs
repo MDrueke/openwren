@@ -68,11 +68,24 @@ pub struct OutgoingDraft {
     /// Paths of files to attach.
     #[serde(default)]
     pub attachments: Vec<String>,
+    /// Attachments of another message to send along, when forwarding it.
+    #[serde(default)]
+    pub forwarded: Option<ForwardedFiles>,
     /// Images shown inside the message (a signature picture), referred to as `cid:<cid>` in the HTML.
     #[serde(default)]
     pub inline_images: Vec<InlineImage>,
     /// Unix seconds; the message leaves the outbox at or after this time.
     pub send_at: i64,
+}
+
+/// Which attachments of a stored message go along with a forward.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ForwardedFiles {
+    /// The message being forwarded.
+    pub message_id: i64,
+    /// Positions in its attachment list, as `MessageDetail::attachments` numbers them.
+    pub indexes: Vec<usize>,
 }
 
 #[derive(Debug, Deserialize)]

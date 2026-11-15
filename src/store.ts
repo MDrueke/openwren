@@ -212,6 +212,24 @@ function quoteOf(m: MessageDetail, forward: boolean): string {
   return `${intro}<blockquote style="margin:0 0 0 8px;padding-left:10px;border-left:3px solid #e3e6ea">${body}</blockquote>`;
 }
 
+/**
+ * A message as text the writer can edit, for forwarding: who sent it and when,
+ * then its text as plain paragraphs. Unlike a reply's quote this goes into the
+ * editor, so it can be shortened or corrected before it is sent on.
+ */
+function forwardedText(m: MessageDetail): string {
+  // The full date: "Today" would be wrong by the time the forward is read.
+  const when = new Date(m.date * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  // A message with only an HTML part still has its text: the engine derives it.
+  const text = m.plain.trim() || new DOMParser().parseFromString(m.html ?? "", "text/html").body.textContent?.trim() || "";
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((p) => `<p>${escapeHtml(p.trim()).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+  const from = m.fromName && m.fromName !== m.fromAddress ? `${escapeHtml(m.fromName)} &lt;${escapeHtml(m.fromAddress)}&gt;` : escapeHtml(m.fromAddress);
+  return `<p>---------- Forwarded message ----------<br>From: ${from}<br>Date: ${when}<br>Subject: ${escapeHtml(m.subject)}<br>To: ${escapeHtml(m.to)}</p>${paragraphs}`;
+}
+
 const prefixed = (prefix: string, subject: string) => (new RegExp(`^${prefix}:`, "i").test(subject) ? subject : `${prefix}: ${subject}`);
 
 export const useStore = create<State>((set, get) => {
@@ -598,7 +616,17 @@ export const useStore = create<State>((set, get) => {
       const sender = m.fromName && m.fromName !== m.fromAddress ? `${m.fromName.replace(/[,;<>"]/g, " ")} <${m.fromAddress}>` : m.fromAddress;
       const base = { accountId: m.accountId, quote: quoteOf(m, kind === "forward"), isReply: true, html };
       const threading = { inReplyTo: m.messageIdHeader, references: [m.references, m.messageIdHeader].filter(Boolean).join(" ") || null };
-      if (kind === "forward") get().compose({ ...base, subject: prefixed("Fw", m.subject) });
+      if (kind === "forward") {
+        // The forwarded text is editable, and the original's attachments go along unless removed.
+        const items = m.attachments.map((a, index) => ({ index, name: a.name, size: a.size }));
+        get().compose({
+          ...base,
+          quote: "",
+          html: `${html || "<p></p>"}${forwardedText(m)}`,
+          subject: prefixed("Fw", m.subject),
+          forwarded: items.length ? { messageId: m.id, items } : undefined,
+        });
+      }
       else if (kind === "reply") get().compose({ ...base, ...threading, to: sender, subject: prefixed("Re", m.subject) });
       else get().compose({ ...base, ...threading, to: [sender, notMe(m.toAddresses)].filter(Boolean).join(", "), cc: notMe(m.ccAddresses), subject: prefixed("Re", m.subject) });
     },
@@ -696,6 +724,7 @@ export const useStore = create<State>((set, get) => {
         inReplyTo: draft.inReplyTo,
         references: draft.references,
         attachments: draft.attachments,
+        forwarded: draft.forwarded?.items.length ? { messageId: draft.forwarded.messageId, indexes: draft.forwarded.items.map((i) => i.index) } : null,
         inlineImages: picture ? [{ cid: SIGNATURE_CID, dataUrl: signature.image }] : [],
         sendAt: at,
       });
