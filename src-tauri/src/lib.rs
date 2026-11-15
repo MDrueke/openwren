@@ -842,6 +842,16 @@ async fn send_message(state: State<'_, AppState>, draft: OutgoingDraft) -> Resul
         let data = tokio::fs::read(path).await.map_err(|e| Error(format!("Could not read {name}: {e}")))?;
         files.push(smtp::FilePart { mime_type: smtp::mime_for(&name).to_string(), name, data });
     }
+    // Forwarding: the original's attachments are read from the stored message, not from disk.
+    if let Some(forwarded) = &draft.forwarded {
+        if !forwarded.indexes.is_empty() {
+            let raw = fetch_raw(&state, forwarded.message_id).await?;
+            for index in &forwarded.indexes {
+                let (name, mime_type, data) = parse::attachment_part(&raw, *index).ok_or(Error("An attachment of the forwarded message could not be read.".into()))?;
+                files.push(smtp::FilePart { name, mime_type, data });
+            }
+        }
+    }
     let mut inline = Vec::new();
     for image in &draft.inline_images {
         let (mime_type, data) = decode_image(&image.data_url)?;

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { backend, errorText } from "../backend";
 import { RichText } from "../components/RichText";
 import { Button, IconButton, Menu } from "../components/ui";
+import { fileSize } from "../lib/search";
 import { signatureHtml } from "../lib/signature";
 import { useStore } from "../store";
 import type { Contact, Draft } from "../types";
@@ -102,6 +103,8 @@ export function Composer({ className }: { className: string }) {
   const [showCopies, setShowCopies] = useState(draft.cc !== "" || draft.bcc !== "");
   const [subject, setSubject] = useState(draft.subject);
   const [files, setFiles] = useState(draft.attachments);
+  // Attachments of the message being forwarded; they travel along unless removed here.
+  const [forwarded, setForwarded] = useState(draft.forwarded?.items ?? []);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [later, setLater] = useState("");
@@ -127,7 +130,7 @@ export function Composer({ className }: { className: string }) {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [saved, setSaved] = useState(draft.id !== undefined);
 
-  const snapshot = (): Draft => ({ ...draft, id: draftId.current, accountId, to, cc, bcc, subject, html: html.current, attachments: files });
+  const snapshot = (): Draft => ({ ...draft, id: draftId.current, accountId, to, cc, bcc, subject, html: html.current, attachments: files, forwarded: draft.forwarded ? { ...draft.forwarded, items: forwarded } : undefined });
   const latest = useRef(snapshot);
   latest.current = snapshot;
 
@@ -325,8 +328,25 @@ export function Composer({ className }: { className: string }) {
 
       {signature && <div className="rich selectable mt-2 flex-none border-t border-dashed border-edge pt-2.5 text-ink2" dangerouslySetInnerHTML={{ __html: signatureHtml(signature) }} />}
       {draft.quote && <p className="mt-2 flex-none text-xs text-ink3">The original message is included below your text.</p>}
-      {files.length > 0 && (
+      {(files.length > 0 || forwarded.length > 0) && (
         <div className="mt-3 flex flex-none flex-wrap gap-2">
+          {forwarded.map((item) => (
+            <span key={`fw-${item.index}`} className="inline-flex items-center gap-1.5 rounded-[10px] border border-edge py-1 pr-1 pl-2.5 text-ink2" title="From the forwarded message">
+              <IconPaperclip size={15} />
+              {item.name}
+              <span className="text-xs text-ink3">{fileSize(item.size)}</span>
+              <IconButton
+                label={`Remove ${item.name}`}
+                className="size-6"
+                onClick={() => {
+                  setForwarded((all) => all.filter((x) => x.index !== item.index));
+                  touch();
+                }}
+              >
+                <IconX size={14} />
+              </IconButton>
+            </span>
+          ))}
           {files.map((path) => (
             <span key={path} className="inline-flex items-center gap-1.5 rounded-[10px] border border-edge py-1 pr-1 pl-2.5 text-ink2" title={path}>
               <button
