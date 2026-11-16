@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.7
+
+- Forwarding a message takes its attachments along; remove any you do not want to send.
+- The forwarded message is text in the editor, so you can shorten or correct it before sending.
+- After an update, a banner at the top says what is new.
+
 ## 0.1.6
 
 - Unread messages are bold in the list and turn regular once read.
