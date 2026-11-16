@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.9
 
 - On Linux with Wayland, the window is sharp on a 100% monitor that sits beside a 200% screen; it used to be drawn blurred.
 
