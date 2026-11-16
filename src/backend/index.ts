@@ -33,15 +33,6 @@ export interface AppInfo {
   systemFontLight: boolean;
 }
 
-/** What the anonymous usage count would send right now. */
-export interface StatsPreview {
-  /** The request, or null when today's has already been sent. */
-  request: Record<string, string | boolean> | null;
-  endpoint: string;
-  /** False in development builds, whatever the setting says. */
-  active: boolean;
-}
-
 /** A newer version of OpenWren, found by the daily check. */
 export interface UpdateAvailable {
   version: string;
@@ -137,7 +128,6 @@ export interface Backend {
   saveRule(rule: Rule): Promise<number>;
   deleteRule(id: number): Promise<void>;
 
-  statsPreview(): Promise<StatsPreview>;
   /** The newer version found by the last check, if any. */
   updateStatus(): Promise<UpdateAvailable | null>;
   /** Checks now; null when this version is the newest. */
@@ -221,7 +211,6 @@ const tauriBackend: Backend = {
   saveRule: (rule) => invoke("save_rule", { rule }),
   deleteRule: (id) => invoke("delete_rule", { id }),
 
-  statsPreview: () => invoke("stats_preview"),
   updateStatus: () => invoke("update_status"),
   checkUpdate: () => invoke("check_update"),
   installUpdate: () => invoke("install_update"),

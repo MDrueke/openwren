@@ -287,8 +287,8 @@ with Google, unsubscribing).
 One thing is on by default: once a day the app sends an anonymous request so
 the project can count how many people use it. It carries the app version, the
 kind of package and system, and nothing that identifies you; the server keeps
-only totals. Switch it off in Settings → Privacy, where "Show what is sent"
-displays the exact request. Details: [PRIVACY.md](PRIVACY.md).
+only totals. The welcome screen asks about it, and Settings → Privacy switches
+it off at any time. Details: [PRIVACY.md](PRIVACY.md).
 
 ## Built with
 

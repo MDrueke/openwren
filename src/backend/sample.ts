@@ -456,11 +456,6 @@ export const sampleBackend: Backend = {
     return headers.join("\r\n") + "\r\n\r\n" + (m.html ?? m.plain);
   },
   markReady: async () => {},
-  statsPreview: async () => ({
-    request: { v: "0.1.0", pkg: "deb", os: "ubuntu-24.04", arch: "x86_64", d: true, w: true, m: false, first: false, iw: "2026-W46" },
-    endpoint: "https://stats.openwren.app/ping",
-    active: false,
-  }),
   openPickedFile: async () => {},
   openAttachment: async () => {
     throw desktopOnly("Opening attachments");
