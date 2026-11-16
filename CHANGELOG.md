@@ -4,7 +4,7 @@
 
 - Forwarding a message takes its attachments along; remove any you do not want to send.
 - The forwarded message is text in the editor, so you can shorten or correct it before sending.
-- After an update, a banner at the top says what is new.
+- After an update, OpenWren shows what is new.
 
 ## 0.1.6
 
