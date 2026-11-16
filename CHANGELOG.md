@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.10
 
 - The sync line at the bottom opens a list of every account with its state, so an error shows which account it belongs to.
 - A button beside Settings checks for new mail now.
