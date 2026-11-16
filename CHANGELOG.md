@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- On Linux with Wayland, the window is sharp on a 100% monitor that sits beside a 200% screen; it used to be drawn blurred.
+
 ## 0.1.8
 
 - A sent message's copy in Sent is saved even when the server had closed the idle connection; if it still cannot be saved, OpenWren says so.

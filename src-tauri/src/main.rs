@@ -7,6 +7,14 @@ fn main() {
         println!("openwren {}", env!("CARGO_PKG_VERSION"));
         return;
     }
+    // On Wayland, WebKitGTK's accelerated drawing path keeps the wrong scale when screens
+    // differ (a 200% laptop screen beside 100% monitors): the whole window is drawn
+    // blurred. The other path draws sharp. Set the variable yourself to choose.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() && std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        // Nothing else is running yet, so changing the environment is safe.
+        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
+    }
     openwren_lib::mark_start();
     openwren_lib::run()
 }
