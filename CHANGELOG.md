@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- A sent message's copy in Sent is saved even when the server had closed the idle connection; if it still cannot be saved, OpenWren says so.
+- Send problems are written to the system log.
+
 ## 0.1.7
 
 - Forwarding a message takes its attachments along; remove any you do not want to send.
