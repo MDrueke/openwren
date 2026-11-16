@@ -10,6 +10,8 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
 import { fontChoice, fontStack } from "../lib/font";
 import { useStore } from "../store";
 import { isMac, mod } from "../lib/keys";
+import { REPOSITORY } from "../lib/links";
+import { backend } from "../backend";
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
@@ -127,6 +129,35 @@ function ToastBar() {
   );
 }
 
+/** How many changes the banner lists before it points to the full list. */
+const SHOWN = 5;
+
+/** Across the top of the window after an update: what is new, until it is closed. */
+function WhatsNewBanner() {
+  const news = useStore((s) => s.whatsNew);
+  const dismiss = useStore((s) => s.dismissWhatsNew);
+  if (!news) return null;
+  const more = news.changes.length - SHOWN;
+  return (
+    <section aria-label="What is new" className="flex flex-none items-start gap-4 border-b border-edge bg-brand/10 px-5 py-3">
+      <div className="min-w-0 flex-1">
+        <h2 className="font-semibold text-ink">OpenWren was updated to version {news.version}. What is new:</h2>
+        <ul className="selectable mt-1 list-disc space-y-0.5 pl-5 text-ink2">
+          {news.changes.slice(0, SHOWN).map((change) => (
+            <li key={change}>{change}</li>
+          ))}
+        </ul>
+        <button type="button" className="mt-1.5 text-brand hover:underline" onClick={() => void backend.openLink(`${REPOSITORY}/blob/main/CHANGELOG.md`)}>
+          {more > 0 ? `And ${more} more: see all changes` : "See all changes"}
+        </button>
+      </div>
+      <button type="button" className="flex-none rounded-full bg-soft px-3 py-1 font-semibold text-on-soft" onClick={dismiss}>
+        Got it
+      </button>
+    </section>
+  );
+}
+
 export function App() {
   const dialog = useStore((s) => s.dialog);
   const init = useStore((s) => s.init);
@@ -168,6 +199,7 @@ export function App() {
   const [listWidth, setListWidth] = useState(340);
   return (
     <div className="relative flex h-full flex-col">
+      {!welcome && <WhatsNewBanner />}
       <main className="flex min-h-0 flex-1 bg-card">
         <FolderPane width={folderWidth} />
         <Resizer value={folderWidth} min={160} max={360} onChange={setFolderWidth} label="Resize folder pane" />

@@ -4,6 +4,8 @@ import type { UpdateAvailable } from "./backend";
 import { longTime, useTwelveHourClock } from "./lib/dates";
 import { cleanMail } from "./lib/privacy";
 import { SIGNATURE_CID, hasPicture, signatureHtml } from "./lib/signature";
+import { whatsNew } from "./lib/whatsNew";
+import type { WhatsNew } from "./lib/whatsNew";
 import type {
   Account,
   Draft,
@@ -90,6 +92,8 @@ interface State {
   systemFont: { family: string; light: boolean };
   /** A newer version of OpenWren, when the daily check found one. */
   update: UpdateAvailable | null;
+  /** What changed, shown once after OpenWren was updated, until it is closed. */
+  whatsNew: WhatsNew | null;
   /** User preferences, as stored (all strings). */
   settings: Record<string, string>;
 
@@ -146,6 +150,7 @@ interface State {
   setWelcome: (on: boolean) => void;
   showToast: (text: string, action?: Toast["action"], sendsAt?: number) => void;
   dismissToast: () => void;
+  dismissWhatsNew: () => void;
 }
 
 export const noFilters: SearchFilters = { accountId: null, hasAttachment: false, date: "any", after: null, before: null };
@@ -338,6 +343,7 @@ export const useStore = create<State>((set, get) => {
     settings: {},
     systemFont: { family: "", light: false },
     update: null,
+    whatsNew: null,
 
     init: async () => {
       if (started) return; // React's strict mode runs effects twice in development
@@ -351,13 +357,20 @@ export const useStore = create<State>((set, get) => {
       backend.onUpdate((update) => set({ update }));
       void backend.updateStatus().then((update) => set({ update })).catch(() => {});
       backend.onSendFailed((f) => get().showToast(`"${f.subject || "(no subject)"}" could not be sent and will be retried. ${f.error}`));
-      void backend
-        .appInfo()
-        .then((info) => info && set({ systemFont: { family: info.systemFont, light: info.systemFontLight } }))
-        .catch((e) => console.error("app_info failed", e));
+      const info = backend.appInfo().catch((e) => (console.error("app_info failed", e), null));
+      void info.then((i) => i && set({ systemFont: { family: i.systemFont, light: i.systemFontLight } }));
       await Promise.all([get().refresh(), get().loadPreferences()]);
       // A first start (no account yet, welcome never finished) opens on the welcome screens.
-      set({ ready: true, welcome: get().accounts.length === 0 && get().settings.onboarded !== "yes" });
+      const firstStart = get().accounts.length === 0 && get().settings.onboarded !== "yes";
+      set({ ready: true, welcome: firstStart });
+      // After an update, say what is new. The preview has no version: add ?whatsnew to see the banner.
+      const version = (await info)?.version ?? (!backend.real && location.search.includes("whatsnew") ? "0.1.4" : null);
+      if (version) {
+        const seen = backend.real ? (get().settings.seen_version ?? null) : "0.1.3";
+        const news = whatsNew(version, seen, firstStart);
+        if (news) set({ whatsNew: news });
+        else if (seen !== version) void get().setSetting("seen_version", version);
+      }
       // Two frames later the first list is on screen; the engine may be timing that.
       requestAnimationFrame(() => requestAnimationFrame(() => void backend.markReady().catch(() => undefined)));
     },
@@ -379,7 +392,7 @@ export const useStore = create<State>((set, get) => {
     },
 
     loadPreferences: async () => {
-      const keys = ["theme", "density", "body_days", "notifications", "undo_seconds", "google_client_id", "google_client_secret", "block_trackers", "phishing_warnings", "brand_logos", "close_to_tray", "start_at_login", "focused_inbox", "image_senders", "blocked_senders", "font", "text_size", "time_format", "onboarded", "usage_stats", "update_check", "thread_collapsed"];
+      const keys = ["theme", "density", "body_days", "notifications", "undo_seconds", "google_client_id", "google_client_secret", "block_trackers", "phishing_warnings", "brand_logos", "close_to_tray", "start_at_login", "focused_inbox", "image_senders", "blocked_senders", "font", "text_size", "time_format", "onboarded", "usage_stats", "update_check", "thread_collapsed", "seen_version"];
       const [signatures, signatureDefaults, values] = await Promise.all([
         backend.listSignatures(),
         backend.signatureDefaults(),
@@ -761,6 +774,12 @@ export const useStore = create<State>((set, get) => {
     dismissToast: () => {
       clearTimeout(toastTimer);
       set({ toast: null });
+    },
+
+    dismissWhatsNew: () => {
+      const news = get().whatsNew;
+      set({ whatsNew: null });
+      if (news) void get().setSetting("seen_version", news.version);
     },
   };
 });
