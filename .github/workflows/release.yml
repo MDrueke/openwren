@@ -178,11 +178,68 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
-  # Signs and publishes what the build jobs produced. It holds the signing keys and
-  # the storage token. It runs this repository's own scripts, plus Tauri's signing
-  # tool at a fixed version to sign the update files.
-  publish:
+  # Signs what the in-app updater installs. An installed OpenWren refuses any update
+  # whose signature was not made with this key (its public half is in tauri.conf.json).
+  # This job holds the update key and nothing else: no package repository key, no
+  # storage token, a read-only token. The signing tool comes from tools/signer, whose
+  # package-lock.json records the hash of every file; npm refuses anything else.
+  sign-updates:
+    name: Sign the update files
     needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: packages-*
+          merge-multiple: true
+          path: release/
+
+      - name: Check the packages against their checksums
+        run: |
+          cd release
+          for sums in SHA256SUMS.linux SHA256SUMS.windows SHA256SUMS.macos; do
+            sha256sum --check --strict "$sums"
+          done
+
+      # npm ci installs exactly what the lockfile lists and checks each hash.
+      # --ignore-scripts: no package gets to run code while it is installed.
+      - name: Install the signing tool from its lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: tools/signer
+
+      - name: Sign the update files
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: |
+          mkdir signatures
+          for file in release/*.AppImage release/*-setup.exe release/*.app.tar.gz; do
+            tools/signer/node_modules/.bin/tauri signer sign "$file" > /dev/null
+            test -s "$file.sig"
+            mv "$file.sig" signatures/
+            echo "signed: $(basename "$file")"
+          done
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: update-signatures
+          path: signatures/
+          if-no-files-found: error
+          retention-days: 3
+
+  # Publishes what the build jobs produced. It holds the package repository key and
+  # the storage token, not the update key: the update signatures arrive ready-made
+  # from the job above. It runs only this repository's own scripts.
+  publish:
+    needs: [build-linux, build-windows, build-macos, sign-updates]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -213,7 +270,19 @@ jobs:
           rm SHA256SUMS.linux SHA256SUMS.windows SHA256SUMS.macos
           cat SHA256SUMS
 
-      - name: Import the signing key
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: update-signatures
+          path: signatures/
+
+      - name: Put each update signature beside its file
+        run: |
+          for file in release/*.AppImage release/*-setup.exe release/*.app.tar.gz; do
+            test -s "signatures/$(basename "$file").sig"
+            mv "signatures/$(basename "$file").sig" "$file.sig"
+          done
+
+      - name: Import the package repository key
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
@@ -244,19 +313,6 @@ jobs:
           scripts/make-apt-repo.sh release site/apt
           scripts/make-rpm-repo.sh release site/rpm
           cp site/apt/key.gpg site/apt/key.asc site/
-
-      # Sign what the in-app updater installs. An installed OpenWren refuses any update
-      # whose signature was not made with this key (its public half is in tauri.conf.json).
-      - name: Sign the update files
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
-        run: |
-          for file in release/*.AppImage release/*-setup.exe release/*.app.tar.gz; do
-            npx --yes @tauri-apps/cli@2.12.4 signer sign "$file" > /dev/null
-            test -s "$file.sig"
-            echo "signed: $(basename "$file")"
-          done
 
       - name: Lay out this release and the version file
         run: |
