@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.8
 
 - A sent message's copy in Sent is saved even when the server had closed the idle connection; if it still cannot be saved, OpenWren says so.
 - Send problems are written to the system log.
