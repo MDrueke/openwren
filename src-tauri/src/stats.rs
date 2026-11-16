@@ -56,10 +56,11 @@ pub fn enabled(conn: &Connection) -> bool {
 }
 
 /// False while the welcome screen of a new installation is still open. That screen asks
-/// about the count, so nothing may be sent before the user has answered it.
+/// about the count, so nothing may be sent before the user has finished it. The interface
+/// records "onboarded" when the screen is finished or skipped, and for an installation
+/// that already had accounts before the screen existed.
 pub fn welcomed(conn: &Connection) -> bool {
     db::get_setting(conn, "onboarded").ok().flatten().as_deref() == Some("yes")
-        || conn.query_row("SELECT EXISTS (SELECT 1 FROM accounts)", [], |r| r.get(0)).unwrap_or(false)
 }
 
 /// The user's own choice in Settings; on unless switched off.
@@ -222,10 +223,10 @@ mod tests {
         assert!(!welcomed(&conn));
         db::set_setting(&conn, "onboarded", "yes").unwrap();
         assert!(welcomed(&conn));
-        // An installation from before the welcome screen existed has accounts and no such setting.
-        let old = crate::store::open_in_memory().unwrap();
-        db::insert_account(&old, "katy@example.test", "Katy", "imap", &crate::model::AccountSettings::default()).unwrap();
-        assert!(welcomed(&old));
+        // Adding an account is a step of the welcome screen, before the one that asks.
+        let midway = crate::store::open_in_memory().unwrap();
+        db::insert_account(&midway, "katy@example.test", "Katy", "imap", &crate::model::AccountSettings::default()).unwrap();
+        assert!(!welcomed(&midway));
     }
 
     #[test]
