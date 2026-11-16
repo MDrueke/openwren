@@ -74,11 +74,75 @@ function Accounts() {
     }
   }
 
+  // Reordering: drag a row by its handle, or focus the handle and press the up or down arrow.
+  const [dragged, setDragged] = useState<number | null>(null);
+  const [over, setOver] = useState<number | null>(null);
+
+  async function move(id: number, to: number) {
+    const from = accounts.findIndex((a) => a.id === id);
+    if (from < 0 || to < 0 || to >= accounts.length || to === from) return;
+    const next = [...accounts];
+    next.splice(to, 0, ...next.splice(from, 1));
+    useStore.setState({ accounts: next }); // show it at once; the engine follows
+    setError("");
+    try {
+      await backend.reorderAccounts(next.map((a) => a.id));
+    } catch (e) {
+      setError(errorText(e));
+    }
+    await refresh();
+  }
+
   return (
     <>
-      {accounts.map((a) => (
-        <div key={a.id} className="mb-2 flex items-center gap-3 rounded-[10px] border border-edge px-3 py-2">
-          <div className="min-w-0 flex-1">
+      {accounts.map((a, index) => (
+        <div
+          key={a.id}
+          className={`mb-2 flex items-center gap-2 rounded-[10px] border py-2 pr-3 pl-1.5 ${over === a.id && dragged !== a.id ? "border-brand bg-soft" : "border-edge"} ${dragged === a.id ? "opacity-50" : ""}`}
+          onDragOver={(e) => {
+            if (dragged === null) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            setOver(a.id);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (dragged !== null) void move(dragged, index);
+            setDragged(null);
+            setOver(null);
+          }}
+        >
+          {accounts.length > 1 && (
+            <button
+              type="button"
+              draggable
+              aria-label={`Move ${a.address}. Drag it, or press the up or down arrow.`}
+              title="Drag to reorder"
+              className="flex-none cursor-grab rounded-md p-1.5 text-ink3 hover:bg-hover hover:text-ink active:cursor-grabbing"
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", a.address);
+                setDragged(a.id);
+              }}
+              onDragEnd={() => {
+                setDragged(null);
+                setOver(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+                e.preventDefault();
+                void move(a.id, index + (e.key === "ArrowUp" ? -1 : 1));
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+                <circle cx="4" cy="4" r="1.6" />
+                <circle cx="10" cy="4" r="1.6" />
+                <circle cx="4" cy="10" r="1.6" />
+                <circle cx="10" cy="10" r="1.6" />
+              </svg>
+            </button>
+          )}
+          <div className={`min-w-0 flex-1 ${accounts.length > 1 ? "" : "pl-1.5"}`}>
             <div className="selectable truncate">{a.address}</div>
             <div className="truncate text-xs text-ink2">
               {a.kind === "gmail" ? "Google" : "IMAP"}
@@ -110,7 +174,10 @@ function Accounts() {
       <Button variant="primary" onClick={() => setDialog("add-account")}>
         Add account
       </Button>
-      <p className="mt-2 text-xs text-ink3">Removing an account deletes its local copy and saved password. Nothing changes on the mail server.</p>
+      <p className="mt-2 text-xs text-ink3">
+        {accounts.length > 1 && `Drag an account by its dots to change the order here and in the folder list. In "All inboxes", new mail is written from the first account. `}
+        Removing an account deletes its local copy and saved password. Nothing changes on the mail server.
+      </p>
       <Problem text={error} />
 
       <h3 className="mt-6 mb-1 font-semibold">Google sign-in</h3>

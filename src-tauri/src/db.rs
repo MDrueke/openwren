@@ -38,6 +38,17 @@ pub fn list_accounts(conn: &Connection) -> Result<Vec<Account>> {
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
+/// Put the accounts in the given order. Accounts that are not named keep their place after them.
+pub fn reorder_accounts(conn: &mut Connection, ids: &[i64]) -> Result<()> {
+    let tx = conn.transaction()?;
+    tx.execute("UPDATE accounts SET position = position + ?1", [ids.len() as i64])?;
+    for (index, id) in ids.iter().enumerate() {
+        tx.execute("UPDATE accounts SET position = ?1 WHERE id = ?2", params![index as i64 + 1, id])?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
 /// The mail server whose sender checks this account trusts.
 pub fn auth_server(conn: &Connection, account_id: i64) -> Result<Option<String>> {
     get_setting(conn, &format!("auth_server_{account_id}"))
@@ -938,6 +949,20 @@ pub fn set_sender_focus(conn: &Connection, id: i64, focused: bool) -> Result<Str
 mod tests {
     use super::*;
     use crate::model::AccountSettings;
+
+    #[test]
+    fn accounts_are_listed_in_the_order_the_user_chose() {
+        let mut conn = crate::store::open_in_memory().unwrap();
+        let ids: Vec<i64> = ["a", "b", "c"].iter().map(|n| insert_account(&conn, &format!("{n}@example.test"), n, "imap", &AccountSettings::default()).unwrap()).collect();
+        let order = |conn: &Connection| list_accounts(conn).unwrap().iter().map(|a| a.id).collect::<Vec<_>>();
+        assert_eq!(order(&conn), ids);
+        reorder_accounts(&mut conn, &[ids[2], ids[0], ids[1]]).unwrap();
+        assert_eq!(order(&conn), [ids[2], ids[0], ids[1]]);
+        // An account that the list leaves out stays after the named ones, and a new one goes last.
+        reorder_accounts(&mut conn, &[ids[1], ids[2]]).unwrap();
+        let new = insert_account(&conn, "d@example.test", "d", "imap", &AccountSettings::default()).unwrap();
+        assert_eq!(order(&conn), [ids[1], ids[2], ids[0], new]);
+    }
 
     #[test]
     fn removing_an_account_in_steps_leaves_nothing_of_it_and_keeps_the_others() {
