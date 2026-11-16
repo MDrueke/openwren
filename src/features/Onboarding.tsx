@@ -141,8 +141,9 @@ export function Onboarding() {
           </button>
         </div>
 
-        <div className="flex flex-1 flex-col justify-center py-8">
-          <div className="max-w-[460px]">
+        {/* In a short window the page scrolls; the buttons below stay in view. */}
+        <div className="-mr-4 flex min-h-0 flex-1 flex-col overflow-y-auto py-6 pr-4">
+          <div className="my-auto max-w-[460px]">
             {step === 0 && (
               <>
                 <h1 className="text-[34px] leading-tight text-ink">Mail that stays yours</h1>
@@ -278,7 +279,7 @@ export function Onboarding() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-none items-center gap-4">
           {step > 0 && (
             <button type="button" onClick={() => setStep(step - 1)} className="inline-flex h-11 items-center gap-2 rounded-xl px-3 text-ink2 hover:bg-hover">
               <IconArrowLeft size={18} /> Back

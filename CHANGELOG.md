@@ -3,6 +3,7 @@
 ## Unreleased
 
 - The welcome screen has a switch for the anonymous usage count, and nothing is sent before that screen is finished.
+- The welcome screen scrolls in a short window, with its buttons always in view; the lower part used to be cut off.
 - The sync line and the header of the folder list stay in place while the folders scroll, so the scrollbar no longer runs through the sync status popup.
 - "Show what is sent" is gone from Settings, Privacy; PRIVACY.md still shows the exact request.
 
