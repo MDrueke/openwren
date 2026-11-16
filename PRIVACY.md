@@ -21,7 +21,7 @@ Nothing else. No analytics library, no crash reporter.
 
 ## The anonymous usage count
 
-Once a day the app tells the project that one more copy is in use, so we know how many people rely on it. It is on by default. Switch it off in **Settings → Privacy → Anonymous usage count**; "Show what is sent" displays the exact request.
+Once a day the app tells the project that one more copy is in use, so we know how many people rely on it; that is what motivates the maintainer to keep the code maintained in the long term. It is on by default. Switch it off on the welcome screen or in **Settings → Privacy → Anonymous usage count**.
 
 The request looks like this:
 

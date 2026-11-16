@@ -148,7 +148,7 @@ function UpdateNotice() {
       type="button"
       onClick={() => setDialog("settings", "about")}
       title={`OpenWren ${update.version} is available`}
-      className="mt-auto flex w-full flex-none items-center gap-2 rounded-lg bg-brand/10 px-2.5 py-2 text-left text-xs font-medium text-brand hover:bg-brand/15"
+      className="mt-1 flex w-full flex-none items-center gap-2 rounded-lg bg-brand/10 px-2.5 py-2 text-left text-xs font-medium text-brand hover:bg-brand/15"
     >
       <IconArrowUpCircle size={16} stroke={1.8} className="flex-none" />
       <span className="truncate">Update available: {update.version}</span>
@@ -162,7 +162,6 @@ function SyncStatus() {
   const setDialog = useStore((s) => s.setDialog);
   const accounts = useStore((s) => s.accounts);
   const progress = useStore((s) => s.progress);
-  const hasUpdate = useStore((s) => s.update !== null);
   // Where the line is on screen while the list of accounts is open above it.
   const [open, setOpen] = useState<{ left: number; bottom: number } | null>(null);
   useEffect(() => {
@@ -187,7 +186,7 @@ function SyncStatus() {
           setOpen({ left: box.left, bottom: window.innerHeight - box.top + 4 });
         }}
         title={`${text}. Click to see each account.`}
-        className={`flex w-full flex-none items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs hover:bg-hover ${hasUpdate ? "mt-1" : "mt-auto"} ${failed ? "text-danger" : "text-ink3"}`}
+        className={`flex w-full flex-none items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs hover:bg-hover mt-1 ${failed ? "text-danger" : "text-ink3"}`}
       >
         <Icon size={16} stroke={1.6} className={`flex-none ${busy && !failed ? "animate-spin" : ""}`} />
         <span className="truncate" role="status">
@@ -262,7 +261,7 @@ export function FolderPane({ width }: { width: number }) {
   // With several accounts, a folder name alone does not say whose it is.
   const owner = (f: Folder) => (accounts.length > 1 ? `${f.name} · ${accounts.find((a) => a.id === f.accountId)?.address ?? ""}` : undefined);
   return (
-    <nav className="flex flex-none flex-col gap-px overflow-y-auto bg-card px-2.5 pt-3.5 pb-2" style={{ width }} aria-label="Folders">
+    <nav className="flex flex-none flex-col bg-card px-2.5 pt-3.5 pb-2" style={{ width }} aria-label="Folders">
       <div className="mb-3 flex flex-none items-center gap-2 pr-0.5 pl-2">
         <img src={logo} alt="" className="size-[22px]" />
         <span className="truncate text-[17px] text-ink">OpenWren</span>
@@ -275,6 +274,8 @@ export function FolderPane({ width }: { width: number }) {
         <IconPencil size={18} stroke={1.6} />
         New mail
       </button>
+      {/* Only the folders scroll: the header above and the sync line below stay in place. */}
+      <div className="-mx-2.5 flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2.5">
       {accounts.length > 0 && <FolderRow folder={allInboxes(folders)} />}
       {favorites.map((f) => (
         <FolderRow key={`fav-${f.id}`} folder={f} label={owner(f)} pinned />
@@ -288,6 +289,7 @@ export function FolderPane({ width }: { width: number }) {
           Add account
         </button>
       )}
+      </div>
       <UpdateNotice />
       <SyncStatus />
     </nav>

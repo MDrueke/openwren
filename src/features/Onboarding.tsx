@@ -110,6 +110,8 @@ export function Onboarding() {
   const accounts = useStore((s) => s.accounts);
   const settings = useStore((s) => s.settings);
   const { setSetting, setDialog, setWelcome } = useStore.getState();
+  // Nothing is sent before this screen is finished, so switching it off here means no request at all.
+  const counted = settings.usage_stats !== "off";
   const [step, setStep] = useState(0);
   const had = useState(accounts.length)[0];
 
@@ -164,9 +166,26 @@ export function Onboarding() {
                     </div>
                   </div>
                 </div>
-                <p className="mt-7 text-[13px] text-ink3">
-                  OpenWren counts its users with one anonymous request a day: no name, no address, no mail. You can switch it off in Settings, under Privacy.
-                </p>
+                <div className="mt-7 flex items-start gap-3.5 rounded-2xl border border-edge px-4 py-3.5">
+                  <div className="min-w-0 flex-1">
+                    <div id="usage-count" className="text-ink">
+                      Anonymous usage count
+                    </div>
+                    <div className="mt-0.5 text-[13px] text-ink2">
+                      One anonymous request a day tells the project that one more copy is in use: no name, no address, no mail. Seeing that people rely on OpenWren is what motivates the maintainer to keep the code maintained in the long term.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={counted}
+                    aria-labelledby="usage-count"
+                    onClick={() => void setSetting("usage_stats", counted ? "off" : "on")}
+                    className={`mt-0.5 h-6 w-11 flex-none rounded-full p-0.5 transition-colors ${counted ? "bg-brand" : "bg-ink3/50"}`}
+                  >
+                    <span className={`block size-5 rounded-full bg-white shadow transition-transform ${counted ? "translate-x-5" : ""}`} />
+                  </button>
+                </div>
               </>
             )}
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- The welcome screen has a switch for the anonymous usage count, and nothing is sent before that screen is finished.
+- The sync line and the header of the folder list stay in place while the folders scroll, so the scrollbar no longer runs through the sync status popup.
+- "Show what is sent" is gone from Settings, Privacy; PRIVACY.md still shows the exact request.
+
 ## 0.1.10
 
 - The sync line at the bottom opens a list of every account with its state, so an error shows which account it belongs to.

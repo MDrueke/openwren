@@ -2,7 +2,7 @@ import { IconBell, IconCloudDownload, IconFilter, IconInfoCircle, IconPalette, I
 import { useEffect, useRef, useState } from "react";
 import logo from "../../src-tauri/icons/128x128.png";
 import { backend, errorText } from "../backend";
-import type { AppInfo, StatsPreview } from "../backend";
+import type { AppInfo } from "../backend";
 import { RichText } from "../components/RichText";
 import { Button, Chip, IconButton, categories, fieldBox, fieldCaption } from "../components/ui";
 import { TEXT_SIZES, fontChoice } from "../lib/font";
@@ -450,8 +450,6 @@ function Privacy() {
   // Same format as the image list: a JSON list of text entries.
   const blockedList = imageSenders(settings.blocked_senders);
   const imageList = imageSenders(settings.image_senders);
-  const [preview, setPreview] = useState<StatsPreview | null>(null);
-  const showPreview = async () => setPreview(preview ? null : await backend.statsPreview().catch(() => null));
   return (
     <>
       <Options label="Remove trackers from mail" value={settings.block_trackers === "off" ? "off" : "on"} onChange={(v) => void setSetting("block_trackers", v)} options={onOff} />
@@ -463,18 +461,7 @@ function Privacy() {
       <Options label="Look for new versions" value={settings.update_check === "off" ? "off" : "on"} onChange={(v) => void setSetting("update_check", v)} options={onOff} />
       <p className={note}>A few times a day OpenWren downloads one small public file that says which version is the newest, and tells you when yours is older. The request carries nothing about you or this computer.</p>
       <Options label="Anonymous usage count" value={settings.usage_stats === "off" ? "off" : "on"} onChange={(v) => void setSetting("usage_stats", v)} options={onOff} />
-      <p className={note}>
-        Once a day OpenWren tells the project that one more copy is in use, so we know how many people rely on it. The request carries no name, address, mail or identifier, and the server keeps only totals.{" "}
-        <button type="button" className="text-brand underline" onClick={() => void showPreview()}>
-          {preview ? "Hide" : "Show what is sent"}
-        </button>
-      </p>
-      {preview && (
-        <pre className="selectable -mt-2 mb-4 overflow-x-auto rounded-[10px] bg-canvas px-3 py-2 font-mono text-xs text-ink">
-          {preview.request ? `POST ${preview.endpoint}\n${JSON.stringify(preview.request, null, 2)}` : "Today's request has already been sent. The next one goes out tomorrow."}
-          {!preview.active && "\n\n(Nothing is sent from this build: it is a development or preview build, or the count is switched off.)"}
-        </pre>
-      )}
+      <p className={note}>Once a day OpenWren tells the project that one more copy is in use. Knowing that people rely on it is what motivates the maintainer to keep the code maintained in the long term. The request carries no name, address, mail or identifier, and the server keeps only totals.</p>
       <div className="mb-1 font-semibold">Blocked senders</div>
       <p className="mb-2 text-[13px] text-ink2">
         Mail from these senders goes straight to Junk, without a notification. To block someone, right-click one of their messages and choose "Block sender". OpenWren does the moving, so it happens while OpenWren is running.

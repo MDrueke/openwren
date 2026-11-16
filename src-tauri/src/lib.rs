@@ -1361,28 +1361,6 @@ async fn install_update(app: AppHandle) -> Result<()> {
     app.restart()
 }
 
-/// What the usage count would send right now, for showing in Settings.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct StatsPreview {
-    /// The request as JSON, or None when today's has already been sent.
-    request: Option<stats::Ping>,
-    /// Where it goes.
-    endpoint: &'static str,
-    /// False in development builds and under `OPENWREN_NO_STATS`, whatever the setting says.
-    active: bool,
-}
-
-#[tauri::command]
-fn stats_preview(app: AppHandle, state: State<'_, AppState>) -> Result<StatsPreview> {
-    let conn = db::lock(&state.db);
-    Ok(StatsPreview {
-        request: stats::next(&conn, chrono::Utc::now(), &app.package_info().version.to_string())?,
-        endpoint: stats::ENDPOINT,
-        active: stats::enabled(&conn),
-    })
-}
-
 /// How long an opened attachment stays in the temporary folder.
 const OPENED_FOR: Duration = Duration::from_secs(30 * 60);
 
@@ -1613,7 +1591,6 @@ pub fn run() {
             save_attachment,
             message_source,
             open_link,
-            stats_preview,
             update_status,
             check_update,
             install_update,

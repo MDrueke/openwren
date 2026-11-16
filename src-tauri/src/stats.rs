@@ -52,7 +52,14 @@ fn month(now: DateTime<Utc>) -> String {
 /// False when the user switched the count off, or `OPENWREN_NO_STATS` is set
 /// (tests, CI), or this is a development build.
 pub fn enabled(conn: &Connection) -> bool {
-    !cfg!(debug_assertions) && std::env::var_os("OPENWREN_NO_STATS").is_none() && switched_on(conn)
+    !cfg!(debug_assertions) && std::env::var_os("OPENWREN_NO_STATS").is_none() && switched_on(conn) && welcomed(conn)
+}
+
+/// False while the welcome screen of a new installation is still open. That screen asks
+/// about the count, so nothing may be sent before the user has answered it.
+pub fn welcomed(conn: &Connection) -> bool {
+    db::get_setting(conn, "onboarded").ok().flatten().as_deref() == Some("yes")
+        || conn.query_row("SELECT EXISTS (SELECT 1 FROM accounts)", [], |r| r.get(0)).unwrap_or(false)
 }
 
 /// The user's own choice in Settings; on unless switched off.
@@ -207,6 +214,18 @@ mod tests {
         db::set_setting(&conn, "usage_stats", "off").unwrap();
         assert!(!switched_on(&conn));
         assert!(!enabled(&conn));
+    }
+
+    #[test]
+    fn waits_until_the_welcome_screen_is_done() {
+        let conn = crate::store::open_in_memory().unwrap();
+        assert!(!welcomed(&conn));
+        db::set_setting(&conn, "onboarded", "yes").unwrap();
+        assert!(welcomed(&conn));
+        // An installation from before the welcome screen existed has accounts and no such setting.
+        let old = crate::store::open_in_memory().unwrap();
+        db::insert_account(&old, "katy@example.test", "Katy", "imap", &crate::model::AccountSettings::default()).unwrap();
+        assert!(welcomed(&old));
     }
 
     #[test]
