@@ -516,7 +516,15 @@ export const sampleBackend: Backend = {
     listeners.add(listener);
     return () => listeners.delete(listener);
   },
-  onProgress: () => () => {},
+  // The preview has no sync. Add ?syncerror to see one account fail and another at work.
+  onProgress: (listener) => {
+    if (location.search.includes("syncerror")) {
+      listener({ accountId: 1, phase: "idle", done: 0, total: 0, message: "" });
+      listener({ accountId: 2, phase: "error", done: 0, total: 0, message: "Could not sign in to imap.work.com: the password was not accepted." });
+      listener({ accountId: 3, phase: "headers", done: 1200, total: 5400, message: "Inbox" });
+    }
+    return () => {};
+  },
   onSendFailed: () => () => {},
   onSentCopyFailed: () => () => {},
   // Add ?update to the address to see the notice in the preview.

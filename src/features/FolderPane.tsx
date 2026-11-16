@@ -16,9 +16,9 @@ import {
   IconStar,
   IconTrash,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import logo from "../../src-tauri/icons/128x128.png";
-import { ContextMenu } from "../components/ui";
+import { Button, ContextMenu } from "../components/ui";
 import { ALL_INBOXES, allInboxes, useStore } from "../store";
 import { DRAG_TYPE } from "./MessageList";
 import type { Folder, FolderRole, Progress } from "../types";
@@ -156,22 +156,99 @@ function UpdateNotice() {
   );
 }
 
-/** The line at the bottom of the sidebar: what sync is doing. Clicking it syncs now. */
+/** The line at the bottom of the sidebar: what sync is doing. Clicking it shows every account's state. */
 function SyncStatus() {
   const syncNow = useStore((s) => s.syncNow);
+  const setDialog = useStore((s) => s.setDialog);
+  const accounts = useStore((s) => s.accounts);
   const progress = useStore((s) => s.progress);
   const hasUpdate = useStore((s) => s.update !== null);
-  const all = Object.values(progress);
+  // Where the line is on screen while the list of accounts is open above it.
+  const [open, setOpen] = useState<{ left: number; bottom: number } | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [open]);
+  const all = accounts.flatMap((a) => (progress[a.id] ? [progress[a.id]] : []));
   const failed = all.find((p) => p.phase === "error");
   const busy = all.find((p) => p.phase !== "idle" && p.phase !== "error");
   const text = failed ? statusText(failed) : busy ? statusText(busy) : "Up to date";
   const Icon = failed ? IconAlertCircle : busy ? IconRefresh : IconCircleCheck;
   return (
-    <button type="button" onClick={syncNow} title={`${text}. Click to sync now.`} className={`flex w-full flex-none items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs hover:bg-hover ${hasUpdate ? "mt-1" : "mt-auto"} ${failed ? "text-danger" : "text-ink3"}`}>
-      <Icon size={16} stroke={1.6} className={`flex-none ${busy && !failed ? "animate-spin" : ""}`} />
-      <span className="truncate" role="status">
-        {text}
-      </span>
+    <>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open !== null}
+        onClick={(e) => {
+          const box = e.currentTarget.getBoundingClientRect();
+          setOpen({ left: box.left, bottom: window.innerHeight - box.top + 4 });
+        }}
+        title={`${text}. Click to see each account.`}
+        className={`flex w-full flex-none items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs hover:bg-hover ${hasUpdate ? "mt-1" : "mt-auto"} ${failed ? "text-danger" : "text-ink3"}`}
+      >
+        <Icon size={16} stroke={1.6} className={`flex-none ${busy && !failed ? "animate-spin" : ""}`} />
+        <span className="truncate" role="status">
+          {text}
+        </span>
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-30" onMouseDown={() => setOpen(null)}>
+          <div
+            role="dialog"
+            aria-label="Sync status"
+            className="fixed z-30 w-[340px] max-w-[calc(100vw-16px)] rounded-[10px] border border-edge bg-card p-3 shadow-lg"
+            style={open}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 font-semibold text-ink">Sync status</div>
+            {accounts.length === 0 && <p className="text-[13px] text-ink2">No accounts yet.</p>}
+            {accounts.map((a) => {
+              const p = progress[a.id];
+              const bad = p?.phase === "error";
+              const Mark = bad ? IconAlertCircle : !p || p.phase === "idle" ? IconCircleCheck : IconRefresh;
+              return (
+                <div key={a.id} className="mb-2 flex gap-2">
+                  <Mark size={16} stroke={1.6} className={`mt-0.5 flex-none ${bad ? "text-danger" : "text-ink3"}`} />
+                  <div className="min-w-0 flex-1">
+                    <div className="selectable truncate text-[13px] text-ink">{a.address}</div>
+                    <div className={`selectable text-xs break-words ${bad ? "text-danger" : "text-ink2"}`}>{statusText(p) || "Waiting…"}</div>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="mt-3 flex gap-2">
+              <Button className="h-8" onClick={syncNow}>
+                Sync now
+              </Button>
+              {failed && (
+                <Button
+                  className="h-8"
+                  onClick={() => {
+                    setOpen(null);
+                    setDialog("settings", "accounts");
+                  }}
+                >
+                  Account settings
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** In the header beside Settings: checks every account for new mail now. Turns while a check runs. */
+function RefreshButton() {
+  const syncNow = useStore((s) => s.syncNow);
+  const busy = useStore((s) => Object.values(s.progress).some((p) => p.phase !== "idle" && p.phase !== "error"));
+  return (
+    <button type="button" aria-label="Check for new mail" title="Check for new mail" onClick={syncNow} className="ml-auto rounded-lg p-1.5 text-ink3 hover:bg-hover hover:text-ink">
+      <IconRefresh size={18} stroke={1.6} className={busy ? "animate-spin" : ""} />
     </button>
   );
 }
@@ -189,7 +266,8 @@ export function FolderPane({ width }: { width: number }) {
       <div className="mb-3 flex flex-none items-center gap-2 pr-0.5 pl-2">
         <img src={logo} alt="" className="size-[22px]" />
         <span className="truncate text-[17px] text-ink">OpenWren</span>
-        <button type="button" aria-label="Settings" title="Settings" onClick={() => setDialog("settings")} className="ml-auto rounded-lg p-1.5 text-ink3 hover:bg-hover hover:text-ink">
+        <RefreshButton />
+        <button type="button" aria-label="Settings" title="Settings" onClick={() => setDialog("settings")} className="rounded-lg p-1.5 text-ink3 hover:bg-hover hover:text-ink">
           <IconSettings size={18} stroke={1.6} />
         </button>
       </div>

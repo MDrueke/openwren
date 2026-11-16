@@ -57,13 +57,20 @@ function Accounts() {
   const [confirm, setConfirm] = useState<number | null>(null);
   const [error, setError] = useState("");
 
+  // A large mailbox takes a while to delete: say so instead of looking stuck.
+  const [removing, setRemoving] = useState<number | null>(null);
+
   async function remove(id: number) {
+    setError("");
+    setRemoving(id);
     try {
       await backend.removeAccount(id);
       setConfirm(null);
       await refresh();
     } catch (e) {
       setError(errorText(e));
+    } finally {
+      setRemoving(null);
     }
   }
 
@@ -78,7 +85,11 @@ function Accounts() {
               {progress[a.id] && ` · ${statusText(progress[a.id])}`}
             </div>
           </div>
-          {confirm === a.id ? (
+          {removing === a.id ? (
+            <span className="text-[13px] text-ink2" role="status">
+              Removing…
+            </span>
+          ) : confirm === a.id ? (
             <>
               <span className="text-[13px] text-ink2">Remove from this computer?</span>
               <Button className="h-8 text-danger" onClick={() => void remove(a.id)}>
