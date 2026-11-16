@@ -57,6 +57,8 @@ export interface Backend {
   /** Opens the system browser for Google sign-in, then adds the account. */
   googleSignIn(address: string, displayName: string): Promise<Account>;
   removeAccount(id: number): Promise<void>;
+  /** Put the accounts in this order, given as their ids. */
+  reorderAccounts(ids: number[]): Promise<void>;
   syncNow(): Promise<void>;
 
   listFolders(): Promise<Folder[]>;
@@ -163,6 +165,7 @@ const tauriBackend: Backend = {
   addAccount: (account) => invoke("add_account", { account }),
   googleSignIn: (address, displayName) => invoke("google_sign_in", { address, displayName }),
   removeAccount: (id) => invoke("remove_account", { id }),
+  reorderAccounts: (ids) => invoke("reorder_accounts", { ids }),
   syncNow: () => invoke("sync_now"),
 
   listFolders: () => invoke("list_folders"),

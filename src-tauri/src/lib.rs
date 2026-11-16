@@ -355,6 +355,12 @@ fn list_accounts(state: State<'_, AppState>) -> Result<Vec<Account>> {
     db::list_accounts(&db::lock(&state.db))
 }
 
+/// Put the accounts in the order the user chose; the sidebar and Settings list them so.
+#[tauri::command]
+fn reorder_accounts(state: State<'_, AppState>, ids: Vec<i64>) -> Result<()> {
+    db::reorder_accounts(&mut db::lock(&state.db), &ids)
+}
+
 #[tauri::command]
 fn list_folders(state: State<'_, AppState>) -> Result<Vec<Folder>> {
     db::list_folders(&db::lock(&state.db))
@@ -1563,6 +1569,7 @@ pub fn run() {
             set_flags,
             add_account,
             remove_account,
+            reorder_accounts,
             sync_now,
             send_message,
             cancel_send,

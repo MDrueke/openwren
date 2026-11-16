@@ -271,12 +271,15 @@ export const sampleBackend: Backend = {
   real: false,
   appInfo: async () => null,
 
-  listAccounts: async () => accounts,
+  listAccounts: async () => [...accounts],
   addAccount: async () => {
     throw desktopOnly("Adding accounts");
   },
   googleSignIn: async () => {
     throw desktopOnly("Google sign-in");
+  },
+  reorderAccounts: async (ids) => {
+    accounts.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   },
   removeAccount: async () => {
     throw desktopOnly("Removing accounts");
