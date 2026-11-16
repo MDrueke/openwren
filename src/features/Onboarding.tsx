@@ -167,26 +167,6 @@ export function Onboarding() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-7 flex items-start gap-3.5 rounded-2xl border border-edge px-4 py-3.5">
-                  <div className="min-w-0 flex-1">
-                    <div id="usage-count" className="text-ink">
-                      Anonymous usage count
-                    </div>
-                    <div className="mt-0.5 text-[13px] text-ink2">
-                      One anonymous request a day tells the project that one more copy is in use: no name, no address, no mail. Seeing that people rely on OpenWren is what motivates the maintainer to keep the code maintained in the long term.
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={counted}
-                    aria-labelledby="usage-count"
-                    onClick={() => void setSetting("usage_stats", counted ? "off" : "on")}
-                    className={`mt-0.5 h-6 w-11 flex-none rounded-full p-0.5 transition-colors ${counted ? "bg-brand" : "bg-ink3/50"}`}
-                  >
-                    <span className={`block size-5 rounded-full bg-white shadow transition-transform ${counted ? "translate-x-5" : ""}`} />
-                  </button>
-                </div>
               </>
             )}
 
@@ -249,6 +229,26 @@ export function Onboarding() {
                       ["12", "3:05 PM"],
                     ]}
                   />
+                </div>
+                <div className="mt-7 flex items-start gap-3.5 rounded-2xl border border-edge px-4 py-3.5">
+                  <div className="min-w-0 flex-1">
+                    <div id="usage-count" className="text-ink">
+                      Anonymous usage count
+                    </div>
+                    <div className="mt-0.5 text-[13px] text-ink2">
+                      One anonymous request a day tells the project that one more copy is in use: no name, no address, no mail. Seeing that people rely on OpenWren is what motivates the maintainer to keep the code maintained in the long term.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={counted}
+                    aria-labelledby="usage-count"
+                    onClick={() => void setSetting("usage_stats", counted ? "off" : "on")}
+                    className={`mt-0.5 h-6 w-11 flex-none rounded-full p-0.5 transition-colors ${counted ? "bg-brand" : "bg-ink3/50"}`}
+                  >
+                    <span className={`block size-5 rounded-full bg-white shadow transition-transform ${counted ? "translate-x-5" : ""}`} />
+                  </button>
                 </div>
               </>
             )}

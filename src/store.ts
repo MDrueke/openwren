@@ -364,6 +364,9 @@ export const useStore = create<State>((set, get) => {
       // A first start (no account yet, welcome never finished) opens on the welcome screens.
       const firstStart = get().accounts.length === 0 && get().settings.onboarded !== "yes";
       set({ ready: true, welcome: firstStart });
+      // An installation with accounts never sees the welcome screen. Record it as done:
+      // the usage count waits for that.
+      if (!firstStart && get().settings.onboarded !== "yes") void get().setSetting("onboarded", "yes");
       // After an update, say what is new. The preview has no version: add ?whatsnew to see it.
       const version = (await info)?.version ?? (!backend.real && location.search.includes("whatsnew") ? "0.1.4" : null);
       if (version) {
