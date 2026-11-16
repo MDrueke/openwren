@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.11
 
 - Accounts can be put in any order in Settings, Accounts: drag one by its dots, or use the arrow keys. The folder list follows.
 - The welcome screen has a switch for the anonymous usage count on its "Make it yours" page, and nothing is sent before that screen is finished.
