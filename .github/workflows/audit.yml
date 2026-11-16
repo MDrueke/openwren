@@ -6,6 +6,9 @@ on:
     paths: ["src-tauri/Cargo.lock", "pnpm-lock.yaml", "deny.toml"]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   rust:
     runs-on: ubuntu-latest

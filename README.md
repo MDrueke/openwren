@@ -362,14 +362,16 @@ reporting a vulnerability privately.
 
 ## Known limits
 
-- Linux only.
+- Windows and macOS are newer than Linux and less tested: Windows was tried on
+  Windows 11, macOS on an Intel Mac only. Their installers are not signed with
+  a certificate yet, so both systems warn on first start.
 - One-click "Sign in with Google" for everyone needs Google's approval of the
   app, which has not been requested yet. Until then Gmail uses an app password.
 - Categories, pins and snoozes are stored on this computer, not on the server.
 - Server-side search understands plain ASCII words only.
 - HTML mail is always shown on a white background, also in the dark theme.
 - Blocking a sender moves their mail when OpenWren syncs, so it only works while the app runs.
-- No Flatpak and no in-app update yet.
+- No Flatpak yet.
 
 ## Licence
 
