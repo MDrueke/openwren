@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- The sync line at the bottom opens a list of every account with its state, so an error shows which account it belongs to.
+- A button beside Settings checks for new mail now.
+- Removing an account with a large mailbox no longer freezes the app; the account shows "Removing…" until it is gone.
+
 ## 0.1.9
 
 - On Linux with Wayland, the window is sharp on a 100% monitor that sits beside a 200% screen; it used to be drawn blurred.

@@ -801,8 +801,15 @@ async fn add_account(app: AppHandle, state: State<'_, AppState>, account: NewAcc
 #[tauri::command]
 async fn remove_account(app: AppHandle, state: State<'_, AppState>, id: i64) -> Result<()> {
     let (address, _, _) = db::account_identity(&db::lock(&state.db), id)?;
-    db::delete_account(&db::lock(&state.db), id)?;
     state.interactive.lock().await.remove(&id);
+    // A large mailbox takes a while to delete. It goes in steps on a thread of its own, so the
+    // rest of the app keeps answering meanwhile.
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || -> Result<()> {
+        while db::delete_account_messages(&db::lock(&db), id, 2000)? > 0 {}
+        db::delete_account(&db::lock(&db), id)
+    })
+    .await??;
     if let Some(wake) = state.wakers.lock().unwrap().remove(&id) {
         wake.notify_one(); // its background task notices the account is gone and stops
     }

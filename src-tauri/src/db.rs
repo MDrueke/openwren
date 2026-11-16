@@ -489,6 +489,13 @@ pub fn unsubscribe_info(conn: &Connection, id: i64) -> Result<(i64, bool, Unsubs
 
 // ---------- accounts: removing ----------
 
+/// Delete up to `limit` of an account's messages; returns how many went. A large mailbox is
+/// removed in such steps, so the database is not held for the whole removal.
+pub fn delete_account_messages(conn: &Connection, account_id: i64, limit: usize) -> Result<usize> {
+    Ok(conn.execute("DELETE FROM messages WHERE id IN (SELECT id FROM messages WHERE account_id = ?1 LIMIT ?2)", params![account_id, limit as i64])?)
+}
+
+/// Delete an account and everything stored for it.
 pub fn delete_account(conn: &Connection, account_id: i64) -> Result<()> {
     conn.execute("DELETE FROM messages WHERE account_id = ?1", [account_id])?;
     conn.execute("DELETE FROM accounts WHERE id = ?1", [account_id])?;
@@ -925,4 +932,34 @@ pub fn set_sender_focus(conn: &Connection, id: i64, focused: bool) -> Result<Str
     let (account_id, address): (i64, String) = conn.query_row("SELECT account_id, from_address FROM messages WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     conn.execute("UPDATE messages SET focused = ?3 WHERE account_id = ?1 AND from_address = ?2", params![account_id, address, focused])?;
     Ok(address)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::AccountSettings;
+
+    #[test]
+    fn removing_an_account_in_steps_leaves_nothing_of_it_and_keeps_the_others() {
+        let mut conn = crate::store::open_in_memory().unwrap();
+        let gone = insert_account(&conn, "old@example.test", "Old", "imap", &AccountSettings::default()).unwrap();
+        let kept = insert_account(&conn, "kept@example.test", "Kept", "imap", &AccountSettings::default()).unwrap();
+        for account in [gone, kept] {
+            let folder = upsert_folder(&conn, account, "INBOX", "Inbox", "inbox").unwrap();
+            crate::sample_data::fill(&mut conn, account, folder, 25, 1_700_000_000).unwrap();
+        }
+        let mut steps = 0;
+        while delete_account_messages(&conn, gone, 10).unwrap() > 0 {
+            steps += 1;
+        }
+        assert_eq!(steps, 3);
+        delete_account(&conn, gone).unwrap();
+        assert!(!account_exists(&conn, gone).unwrap());
+        let count = |sql: &str| conn.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
+        assert_eq!(count("SELECT count(*) FROM messages"), 25);
+        assert_eq!(count("SELECT count(*) FROM folders"), 1);
+        assert_eq!(count("SELECT count(*) FROM bodies"), count("SELECT count(*) FROM bodies WHERE message_id IN (SELECT id FROM messages)"));
+        assert_eq!(count("SELECT count(*) FROM message_folders"), 25);
+        assert!(account_exists(&conn, kept).unwrap());
+    }
 }
