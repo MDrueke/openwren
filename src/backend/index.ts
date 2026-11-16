@@ -155,6 +155,8 @@ export interface Backend {
   onChanged(listener: (accountId: number) => void): Unsubscribe;
   onProgress(listener: (progress: Progress) => void): Unsubscribe;
   onSendFailed(listener: (failure: SendFailed) => void): Unsubscribe;
+  /** A message went out, but its copy could not be saved in the Sent folder. */
+  onSentCopyFailed(listener: (failure: SendFailed) => void): Unsubscribe;
 }
 
 /** Subscribe to a Tauri event; returns a function that unsubscribes. */
@@ -232,6 +234,7 @@ const tauriBackend: Backend = {
   onChanged: (listener) => subscribe("mail-changed", listener),
   onProgress: (listener) => subscribe("sync-progress", listener),
   onSendFailed: (listener) => subscribe("send-failed", listener),
+  onSentCopyFailed: (listener) => subscribe("sent-copy-failed", listener),
 };
 
 export const backend: Backend = isTauri() ? tauriBackend : sampleBackend;

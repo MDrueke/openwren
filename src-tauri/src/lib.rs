@@ -887,7 +887,25 @@ fn list_outbox(state: State<'_, AppState>) -> Result<Vec<OutboxItem>> {
     db::list_outbox(&db::lock(&state.db))
 }
 
-async fn deliver(state: &AppState, item: &db::Queued) -> Result<()> {
+/// Put a copy of a sent message into the Sent folder. The connection kept from earlier
+/// may have been closed by the server while idle, so a failure is tried once more on a new one.
+async fn save_sent_copy(state: &AppState, account_id: i64, path: &str, raw: &[u8]) -> Result<()> {
+    let kept = state.interactive.lock().await.remove(&account_id);
+    if let Some(mut session) = kept {
+        if session.append(path, Some("(\\Seen)"), None, raw).await.is_ok() {
+            return_session(state, account_id, session).await;
+            return Ok(());
+        }
+    }
+    let mut session = connect_account(state, account_id).await?;
+    session.append(path, Some("(\\Seen)"), None, raw).await?;
+    return_session(state, account_id, session).await;
+    Ok(())
+}
+
+/// Sends one queued message. The answer is a problem with the copy in Sent, if there
+/// was one: by then the message itself has gone out.
+async fn deliver(state: &AppState, item: &db::Queued) -> Result<Option<String>> {
     let (_, settings, secret) = account_secret(state, item.account_id).await?;
     let smtp_settings = settings.smtp.clone().ok_or(Error("This account has no outgoing (SMTP) server.".into()))?;
     smtp::send(&smtp_settings, &secret, &item.mail_from, &item.recipients, &item.raw).await?;
@@ -902,13 +920,11 @@ async fn deliver(state: &AppState, item: &db::Queued) -> Result<()> {
     let sent = db::folder_by_role(&db::lock(&state.db), item.account_id, "sent")?;
     // Gmail files its own copy of sent mail; adding one would duplicate it.
     if let (Some((_, path)), true) = (sent, settings.imap.is_some() && !settings.is_gmail()) {
-        if let Ok(mut session) = take_session(state, item.account_id).await {
-            if session.append(&path, Some("(\\Seen)"), None, &item.raw).await.is_ok() {
-                return_session(state, item.account_id, session).await;
-            }
+        if let Err(e) = save_sent_copy(state, item.account_id, &path, &item.raw).await {
+            return Ok(Some(e.0));
         }
     }
-    Ok(())
+    Ok(None)
 }
 
 #[derive(Clone, Serialize)]
@@ -938,7 +954,11 @@ async fn outbox_worker(app: AppHandle) {
         };
         for item in due {
             match deliver(&state, &item).await {
-                Ok(()) => {
+                Ok(copy_problem) => {
+                    if let Some(error) = copy_problem {
+                        eprintln!("Sent, but no copy was saved in Sent: {error}");
+                        let _ = app.emit("sent-copy-failed", SendFailed { id: item.id, subject: item.subject.clone(), error });
+                    }
                     let _ = db::remove_outgoing(&db::lock(&state.db), item.id);
                     let _ = app.emit("outbox-changed", item.id);
                     if let Some(wake) = state.wakers.lock().unwrap().get(&item.account_id) {
@@ -946,6 +966,7 @@ async fn outbox_worker(app: AppHandle) {
                     }
                 }
                 Err(e) => {
+                    eprintln!("Could not send a message (attempt {}): {}", item.attempts + 1, e.0);
                     let retry_at = now() + 60 * (item.attempts + 1).min(30);
                     let _ = db::fail_outgoing(&db::lock(&state.db), item.id, &e.0, retry_at);
                     let _ = app.emit("send-failed", SendFailed { id: item.id, subject: item.subject.clone(), error: e.0 });

@@ -357,6 +357,7 @@ export const useStore = create<State>((set, get) => {
       backend.onUpdate((update) => set({ update }));
       void backend.updateStatus().then((update) => set({ update })).catch(() => {});
       backend.onSendFailed((f) => get().showToast(`"${f.subject || "(no subject)"}" could not be sent and will be retried. ${f.error}`));
+      backend.onSentCopyFailed((f) => get().showToast(`"${f.subject || "(no subject)"}" was sent, but no copy could be saved in Sent. ${f.error}`));
       const info = backend.appInfo().catch((e) => (console.error("app_info failed", e), null));
       void info.then((i) => i && set({ systemFont: { family: i.systemFont, light: i.systemFontLight } }));
       await Promise.all([get().refresh(), get().loadPreferences()]);
