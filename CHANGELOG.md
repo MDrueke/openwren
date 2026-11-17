@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Senders are harder to fake as "confirmed". For Gmail, only Google's own checks count. For other providers, the server whose checks are believed is learned only from at least 50 messages, and it must have checked at least 80% of them; it used to take 5 messages and half. Settings, Accounts shows which server it is.
+
 ## 0.1.11
 
 - Accounts can be put in any order in Settings, Accounts: drag one by its dots, or use the arrow keys. The folder list follows.

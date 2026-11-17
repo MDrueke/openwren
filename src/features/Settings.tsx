@@ -148,6 +148,9 @@ function Accounts() {
               {a.kind === "gmail" ? "Google" : "IMAP"}
               {progress[a.id] && ` · ${statusText(progress[a.id])}`}
             </div>
+            <div className="truncate text-xs text-ink2" title="Senders are confirmed only by this server's checks. It is learned from nearly all of the account's mail, or known for Gmail.">
+              {a.authServer ? `Sender checks by ${a.authServer}` : "Sender checks: still learning which server makes them"}
+            </div>
           </div>
           {removing === a.id ? (
             <span className="text-[13px] text-ink2" role="status">
