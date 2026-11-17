@@ -258,13 +258,38 @@ pub struct Body {
 /// Remove everything active from mail HTML. Scripts, forms, embeds and event
 /// handlers are dropped; layout attributes that mail relies on are kept.
 /// Remote content is blocked separately by the reading pane's policy.
+///
+/// Image maps (`<map>`, `<area href>`) are removed: their links would skip the link
+/// checks, which look at `<a href>` only. Positioning is removed from inline styles, so
+/// a message cannot lay text over the rest of the page, such as a fake "verified" mark.
 pub fn sanitize_html(html: &str) -> String {
     ammonia::Builder::default()
         .add_generic_attributes(["style", "align", "valign", "width", "height", "bgcolor", "color", "border", "cellpadding", "cellspacing"])
+        .rm_tags(["map", "area"])
         .add_url_schemes(["cid"])
         .link_rel(Some("noopener noreferrer"))
+        .attribute_filter(|_, attribute, value| Some(if attribute == "style" { without_positioning(value).into() } else { value.into() }))
         .clean(html)
         .to_string()
+}
+
+/// An inline style without `position`. Comments are removed first, and declarations
+/// whose name is not plain letters and dashes (CSS escapes such as `p\osition`) are dropped.
+fn without_positioning(style: &str) -> String {
+    let mut text = String::with_capacity(style.len());
+    let mut rest = style;
+    while let Some(start) = rest.find("/*") {
+        text.push_str(&rest[..start]);
+        rest = rest[start + 2..].find("*/").map_or("", |end| &rest[start + 2 + end + 2..]);
+    }
+    text.push_str(rest);
+    text.split(';')
+        .filter(|declaration| {
+            let name = declaration.split(':').next().unwrap_or_default().trim().to_ascii_lowercase();
+            name.is_empty() || (name.chars().all(|c| c.is_ascii_lowercase() || c == '-') && name != "position")
+        })
+        .collect::<Vec<_>>()
+        .join(";")
 }
 
 fn preview_of(text: &str) -> String {
@@ -453,6 +478,20 @@ List-Unsubscribe-Post: List-Unsubscribe=One-Click\r\nSubject: Deals\r\n\r\nHi";
         for bad in ["script", "onclick", "iframe", "javascript:"] {
             assert!(!clean.contains(bad), "{bad} survived: {clean}");
         }
+    }
+
+    #[test]
+    fn mail_cannot_place_text_over_the_page_or_hide_links_in_image_maps() {
+        let clean = sanitize_html(
+            "<div style=\"color:red; position: fixed; top:0\">Verified sender</div>\
+             <div style=\"POSITION:absolute\">a</div><div style=\"posi/**/tion:fixed\">b</div>\
+             <div style=\"p\\osition:fixed;color:blue\">c</div>\
+             <img src=\"cid:x\" usemap=\"#m\"><map name=\"m\"><area href=\"https://evil.example\" shape=\"rect\"></map>",
+        );
+        assert!(!clean.to_ascii_lowercase().contains("position"), "{clean}");
+        assert!(!clean.contains("osition"), "{clean}");
+        assert!(clean.contains("color:red") && clean.contains("color:blue"), "{clean}");
+        assert!(!clean.contains("<area") && !clean.contains("evil.example"), "{clean}");
     }
 
     #[test]

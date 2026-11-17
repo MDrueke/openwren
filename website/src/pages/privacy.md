@@ -13,7 +13,7 @@ OpenWren keeps your mail on your computer. This page lists every network request
 | Request | When | Goes to |
 |---|---|---|
 | Mail sync and sending (IMAP and SMTP) | Whenever the app syncs or you send mail | Your mail servers |
-| Google sign-in | Only if you choose to sign in with Google | Google |
+| Google sign-in | Only if you choose to sign in with Google, and once more when you remove that account, to cancel its access | Google |
 | Remote images | Only when you click "Show images" on a message | The servers the message points to |
 | Unsubscribe | Only when you confirm that you want to unsubscribe from a mailing | The mailing's sender |
 | Anonymous usage request | Once a day, only if you chose to be counted | `stats.openwren.app` |

@@ -10,6 +10,15 @@
 - The mail cleaner (ammonia) is updated to 4.2.5, which fixes a flaw in handling SVG and MathML. OpenWren does not allow those tags in mail, so it was not affected, but the update is taken anyway.
 - A `mailto:` link in a message opens OpenWren's own composer, filled with the recipient, copy, subject and text only. It used to go to the system mail program with all its parameters, and some programs attach local files when a link asks them to.
 - Senders are harder to fake as "confirmed". For Gmail, only Google's own checks count. For other providers, the server whose checks are believed is learned only from at least 50 messages, and it must have checked at least 80% of them; it used to take 5 messages and half. Settings, Accounts shows which server it is.
+- An attachment you open is written readable by you only from the first moment; its folder used to be readable by others for an instant.
+- Old Office files (`.doc`, `.xls`, `.ppt`) and `.rtf` files no longer open straight from mail, since they can carry macros or exploits. Save them first if you trust the sender.
+- Links in image maps are removed from mail, so every link goes through the link checks.
+- A message can no longer position text over the reading pane, such as a fake "verified" mark.
+- "None (not secure)" now works only for a mail server on this computer, as the setting always said.
+- Unsubscribe requests also refuse a few more special address ranges.
+- Removing a Google account asks Google to cancel its access; before, the sign-in stayed valid at Google.
+- Files chosen for attaching are forgotten after a week unless a draft still attaches them.
+- If you used version 0.1.0, which stored mail unencrypted: later versions encrypted the database, but the disk space of the old unencrypted file is only overwritten over time.
 
 ## 0.1.11
 

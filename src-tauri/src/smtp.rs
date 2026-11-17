@@ -127,6 +127,7 @@ pub fn build(o: &Outgoing) -> Result<Built> {
 pub use crate::model::Secret;
 
 fn transport(settings: &ServerSettings, secret: &Secret) -> Result<AsyncSmtpTransport<Tokio1Executor>> {
+    settings.check_security()?;
     let builder = match settings.security {
         Security::Tls => AsyncSmtpTransport::<Tokio1Executor>::relay(&settings.host)?,
         Security::Starttls => AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&settings.host)?,
