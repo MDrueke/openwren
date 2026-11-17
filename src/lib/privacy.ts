@@ -1,18 +1,27 @@
-import { brandFor, brands, domainOf } from "./brands";
+import { getDomain, getDomainWithoutSuffix, getPublicSuffix } from "tldts";
+import { domainOf } from "./brands";
+import { impersonated, skeleton } from "./impersonated";
 
 /**
  * Checks that protect the reader. Everything here runs on this computer on the
  * message itself; nothing is looked up online.
  */
 
-const SECOND_LEVEL = new Set(["co", "com", "org", "net", "ac", "gov", "edu"]);
-
-/** The part of a host name that someone registered: "mail.shop.co.uk" gives "shop.co.uk". */
+/**
+ * The part of a host name that someone registered: "mail.shop.co.uk" gives "shop.co.uk".
+ * It follows the Public Suffix List (bundled with the app, nothing is looked up), with
+ * its private part too, so sites on shared hosting stay apart: "paypal.github.io" and
+ * "evil.github.io" are two different sites.
+ */
 export function registrable(host: string): string {
-  const labels = host.toLowerCase().replace(/\.$/, "").split(".");
-  if (labels.length <= 2) return labels.join(".");
-  const keep = labels[labels.length - 1].length === 2 && SECOND_LEVEL.has(labels[labels.length - 2]) ? 3 : 2;
-  return labels.slice(-keep).join(".");
+  const name = host.toLowerCase().replace(/\.$/, "");
+  return getDomain(name, { allowPrivateDomains: true }) ?? name;
+}
+
+/** The registered name without its ending: "mail.paypal.co.uk" gives "paypal". */
+function ownName(host: string): string {
+  const name = host.toLowerCase().replace(/\.$/, "");
+  return getDomainWithoutSuffix(name, { allowPrivateDomains: true }) ?? name;
 }
 
 /**
@@ -95,9 +104,70 @@ export function lookAlike(host: string): boolean {
   return /^[a-z]+$/i.test(ending) && labels.slice(0, -1).some((label) => FOREIGN_LETTER.test(label));
 }
 
+/** Words that often stand next to a company's name in a sender name, without changing who it claims to be. */
 const GENERIC = new Set(
-  "support team security service services billing account accounts customer care help info notification notifications news newsletter alerts alert no-reply noreply payments rewards store shop online official mail email inc llc ltd the".split(" "),
+  (
+    "support team security service services billing account accounts customer customers care help helpdesk desk info notification notifications " +
+    "news newsletter alerts alert no-reply noreply no reply payments payment rewards store shop online official mail email inc llc ltd corp " +
+    "corporation company co the your my from via by at of and for department dept center centre admin administrator verification verify " +
+    "update updates message messages security-team protection fraud prevention member members services-team id login sign-in signin secure " +
+    "delivery deliveries shipping express parcel parcels order orders invoice invoices"
+  ).split(" "),
 );
+
+/** The words of a name, split on spaces and punctuation, so "PayPal-Support" and "PayPal Inc." are two words. */
+function wordsOf(text: string): string[] {
+  return text.split(/[^\p{L}\p{N}$|@]+/u).filter(Boolean);
+}
+
+/**
+ * The companies, worked out once: the words of each name as they look, and each domain
+ * with its registered name. Without a known domain there is nothing to compare an
+ * address with, so such names are left out, as are names of one or two letters.
+ */
+const COMPANIES = impersonated
+  .filter((b) => b.title.length >= 3 && b.domains.length > 0)
+  .map((b) => ({ ...b, words: wordsOf(b.title).map(skeleton), names: b.domains.map((d) => ({ domain: d, name: ownName(d), drawn: skeleton(ownName(d)) })) }));
+
+/** The company a sender name claims to be, when its address does not belong to that company. */
+function claimedBrand(name: string, domain: string): string | null {
+  const words = wordsOf(name);
+  const plain = words.map((w) => w.toLowerCase());
+  const drawn = words.map(skeleton);
+  for (const brand of COMPANIES) {
+    const title = brand.words;
+    if (title.length === 0 || title.length > words.length) continue;
+    // The name of the company anywhere in the sender name ("Service PayPal"), read as it looks ("PayPaI").
+    for (let at = 0; at + title.length <= words.length; at++) {
+      if (!title.every((w, i) => drawn[at + i] === w)) continue;
+      const rest = plain.filter((_, i) => i < at || i >= at + title.length);
+      if (!rest.every((w) => GENERIC.has(w))) continue;
+      // The company's own domains, including country ones that are not listed (paypal.be),
+      // but not the same name under any other ending (paypal.xyz).
+      const own = brand.names.some((d) => domain === d.domain || domain.endsWith(`.${d.domain}`) || (d.name === ownName(domain) && countryEnding(domain)));
+      if (!own) return brand.title;
+    }
+  }
+  return null;
+}
+
+/** True for a country ending such as ".be" or ".co.uk". */
+function countryEnding(domain: string): boolean {
+  return /^(?:(?:co|com|org|net|ac|gov)\.)?[a-z]{2}$/.test(getPublicSuffix(domain) ?? "");
+}
+
+/** A company domain that `domain` imitates with look-alike letters ("paypa1.com", "rnicrosoft.com"), or null. */
+function imitatedDomain(domain: string): string | null {
+  const name = ownName(domain);
+  const drawn = skeleton(name);
+  if (drawn.length < 4) return null;
+  for (const brand of COMPANIES) {
+    for (const d of brand.names) {
+      if (d.name !== name && d.drawn === drawn) return d.domain;
+    }
+  }
+  return null;
+}
 
 /**
  * A sender name that claims to be someone the address is not: it shows another
@@ -109,19 +179,16 @@ export function nameProblem(name: string, address: string): string | null {
   if (lookAlike(domainOf(address))) {
     return `The sender's address ${readableHost(domainOf(address))} contains letters from another alphabet that look like ordinary ones. This is a common way to imitate a known address.`;
   }
+  const imitated = imitatedDomain(domain);
+  if (imitated) {
+    return `The sender's address ${domain} looks like ${imitated} but is a different address. This is a common way to imitate a known address.`;
+  }
   const shown = name.match(/[\w.+-]+@([a-z0-9-]+\.)+[a-z]{2,}/i)?.[0];
   if (shown && registrable(domainOf(shown)) !== domain) {
     return `The sender's name shows the address ${shown}, but this message came from ${address}.`;
   }
-  const words = name.toLowerCase().replace(/[^\p{L}\p{N}\s.-]/gu, " ").split(/\s+/).filter(Boolean);
-  for (const brand of brands) {
-    const title = brand.title.toLowerCase().split(/\s+/);
-    if (brand.title.length < 4 || words.length < title.length || !title.every((w, i) => words[i] === w)) continue;
-    if (!words.slice(title.length).every((w) => GENERIC.has(w))) continue;
-    // The company's own domains, including country ones we do not list (paypal.be).
-    const own = brandFor(address) === brand || brand.domains.some((d) => d.split(".")[0] === domain.split(".")[0]);
-    if (!own) return `The sender's name says "${brand.title}", but the address ${address} does not belong to ${brand.title}.`;
-  }
+  const brand = claimedBrand(name, domain);
+  if (brand) return `The sender's name says "${brand}", but the address ${address} does not belong to ${brand}.`;
   return null;
 }
 

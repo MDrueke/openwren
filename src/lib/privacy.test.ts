@@ -81,6 +81,53 @@ describe("lookAlike", () => {
   });
 });
 
+describe("tricks from issue 6", () => {
+  const flagged = (name: string, address = "alerts@evil.example") => nameProblem(name, address);
+  it("finds the company name however it is written", () => {
+    expect(flagged("PayPal Security Team")).toContain('"PayPal"');
+    expect(flagged("PayPal-Support")).toContain('"PayPal"');
+    expect(flagged("PayPal Inc.")).toContain('"PayPal"');
+    expect(flagged("Service PayPal")).toContain('"PayPal"');
+    expect(flagged("PayPaI")).toContain('"PayPal"'); // capital i
+    expect(flagged("Micr0soft Account Team")).toContain('"Microsoft"');
+    expect(flagged("Аpple ID")).toContain('"Apple"'); // Cyrillic А
+  });
+
+  it("knows companies that have no logo", () => {
+    expect(flagged("Microsoft Account Team")).toContain('"Microsoft"');
+    expect(flagged("Amazon Delivery")).toContain('"Amazon"');
+    expect(flagged("DHL Express")).toContain('"DHL"');
+    expect(nameProblem("Microsoft Account Team", "account-security-noreply@accountprotection.microsoft.com")).toBeNull();
+    expect(nameProblem("Amazon.co.uk", "shipment-tracking@amazon.co.uk")).toBeNull();
+  });
+
+  it("does not take a company's name under any ending", () => {
+    expect(nameProblem("PayPal", "service@paypal.xyz")).toContain('"PayPal"');
+    expect(nameProblem("PayPal", "service@paypal.be")).toBeNull();
+  });
+
+  it("leaves names that only contain a company's name alone", () => {
+    expect(nameProblem("Apple Insider", "news@appleinsider.com")).toBeNull();
+    expect(nameProblem("Anna from the PayPal fan club", "anna@fans.example")).toBeNull();
+    expect(nameProblem("YouTube", "no-reply@youtube.com")).toBeNull();
+  });
+
+  it("finds addresses that imitate a company's with look-alike letters", () => {
+    expect(nameProblem("Account", "service@paypa1.com")).toContain("looks like paypal.com");
+    expect(nameProblem("Account", "service@rnicrosoft.com")).toContain("looks like microsoft.com");
+    expect(nameProblem("Account", "service@paypal.com")).toBeNull();
+  });
+
+  it("keeps sites on shared hosting apart", () => {
+    expect(registrable("paypal.github.io")).toBe("paypal.github.io");
+    expect(registrable("evil.github.io")).not.toBe(registrable("paypal.github.io"));
+    expect(registrable("login.paypal.pages.dev")).toBe("paypal.pages.dev");
+    expect(registrable("a.b.herokuapp.com")).toBe("b.herokuapp.com");
+    const { mismatches } = cleanMail('<a href="https://evil.github.io/login">paypal.github.io</a>');
+    expect(mismatches).toEqual([{ shown: "paypal.github.io", goes: "evil.github.io" }]);
+  });
+});
+
 describe("nameProblem", () => {
   it("accepts a company writing from its own domains", () => {
     expect(nameProblem("PayPal", "service@paypal.com")).toBeNull();
