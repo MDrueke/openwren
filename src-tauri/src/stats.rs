@@ -1,11 +1,16 @@
 //! The anonymous usage count: at most one small request a day, so the project
 //! can see how many people use OpenWren without knowing who they are.
 //!
-//! Nothing here identifies a person or a computer. There is no install id.
+//! Nothing is sent unless the user said yes to it. There is no install id.
 //! The request says which version and kind of system it comes from, and
 //! whether it is this installation's first request today, this week, this
 //! month and ever; the server only adds those up. What was last sent is kept
 //! in the local settings table, never on the server.
+//!
+//! The facts are kept coarse (the major system version, the month of
+//! installation) so that few installations share none of them. On an uncommon
+//! system the combination may still be shared by only a few, which is said
+//! plainly in PRIVACY.md.
 
 use chrono::{DateTime, Datelike, Utc};
 use rusqlite::Connection;
@@ -23,7 +28,7 @@ pub struct Ping {
     pub v: String,
     /// How it was installed: "deb", "rpm", "appimage", "flatpak", "dmg" (macOS), "exe" (Windows) or "other".
     pub pkg: String,
-    /// Distribution and version, such as "ubuntu-24.04".
+    /// Distribution and major version, such as "ubuntu-24".
     pub os: String,
     /// Processor type, such as "x86_64".
     pub arch: String,
@@ -32,7 +37,7 @@ pub struct Ping {
     pub w: bool,
     pub m: bool,
     pub first: bool,
-    /// The week the app was first used, such as "2026-W46".
+    /// The month the app was first used, such as "2026-11". (The name is from when it was a week.)
     pub iw: String,
 }
 
@@ -49,7 +54,7 @@ fn month(now: DateTime<Utc>) -> String {
     now.format("%Y-%m").to_string()
 }
 
-/// False when the user switched the count off, or `OPENWREN_NO_STATS` is set
+/// False unless the user chose to be counted; also false when or `OPENWREN_NO_STATS` is set
 /// (tests, CI), or this is a development build.
 pub fn enabled(conn: &Connection) -> bool {
     !cfg!(debug_assertions) && std::env::var_os("OPENWREN_NO_STATS").is_none() && switched_on(conn) && welcomed(conn)
@@ -63,9 +68,18 @@ pub fn welcomed(conn: &Connection) -> bool {
     db::get_setting(conn, "onboarded").ok().flatten().as_deref() == Some("yes")
 }
 
-/// The user's own choice in Settings; on unless switched off.
+/// The user's own choice, on the welcome screen or in Settings. Nothing is counted
+/// until the user has said yes: not choosing means no.
 pub fn switched_on(conn: &Connection) -> bool {
-    db::get_setting(conn, "usage_stats").ok().flatten().as_deref() != Some("off")
+    db::get_setting(conn, "usage_stats").ok().flatten().as_deref() == Some("on")
+}
+
+/// The month of an install week stored by an older version ("2026-W46" → "2026-11"),
+/// or the value itself when it is already a month.
+fn as_month(stored: &str) -> Option<String> {
+    let (year, week) = stored.split_once("-W")?;
+    let monday = chrono::NaiveDate::from_isoywd_opt(year.parse().ok()?, week.parse().ok()?, chrono::Weekday::Mon)?;
+    Some(monday.format("%Y-%m").to_string())
 }
 
 /// The request that would be sent now, or None when today's has already gone out.
@@ -74,7 +88,7 @@ pub fn next(conn: &Connection, now: DateTime<Utc>, version: &str) -> Result<Opti
     if last("stats_last_day")?.as_deref() == Some(day(now).as_str()) {
         return Ok(None);
     }
-    let install_week = last("stats_install_week")?;
+    let install_month = last("stats_install_week")?.map(|stored| as_month(&stored).unwrap_or(stored));
     let (pkg, os) = system();
     Ok(Some(Ping {
         v: version.to_string(),
@@ -84,8 +98,8 @@ pub fn next(conn: &Connection, now: DateTime<Utc>, version: &str) -> Result<Opti
         d: true,
         w: last("stats_last_week")?.as_deref() != Some(week(now).as_str()),
         m: last("stats_last_month")?.as_deref() != Some(month(now).as_str()),
-        first: install_week.is_none(),
-        iw: install_week.unwrap_or_else(|| week(now)),
+        first: install_month.is_none(),
+        iw: install_month.unwrap_or_else(|| month(now)),
     }))
 }
 
@@ -126,7 +140,8 @@ fn describe(os_release: &str, exe: &str, appimage: bool, flatpak: bool) -> (Stri
     };
     let clean = |text: String, allowed: fn(char) -> bool, max: usize| text.chars().filter(|c| allowed(*c)).take(max).collect::<String>();
     let id = clean(field("ID"), |c| c.is_ascii_alphanumeric() || c == '-', 24);
-    let version = clean(field("VERSION_ID"), |c| c.is_ascii_digit() || c == '.', 8);
+    // Only the major version ("24" of "24.04"): fewer installations stand out.
+    let version = clean(field("VERSION_ID"), |c| c.is_ascii_digit() || c == '.', 8).split('.').next().unwrap_or_default().to_string();
     let os = match (id.is_empty(), version.is_empty()) {
         (true, _) => "other".to_string(),
         (false, true) => id.clone(),
@@ -175,7 +190,7 @@ mod tests {
         let friday = at(2026, 11, 13);
         let first = next(&conn, friday, "0.1.0").unwrap().unwrap();
         assert_eq!((first.d, first.w, first.m, first.first), (true, true, true, true));
-        assert_eq!(first.iw, "2026-W46");
+        assert_eq!(first.iw, "2026-11", "the month of installation, not the week");
         assert_eq!(first.v, "0.1.0");
         record(&conn, &first, friday).unwrap();
 
@@ -186,7 +201,7 @@ mod tests {
         let saturday = at(2026, 11, 14);
         let second = next(&conn, saturday, "0.1.0").unwrap().unwrap();
         assert_eq!((second.d, second.w, second.m, second.first), (true, false, false, false));
-        assert_eq!(second.iw, "2026-W46", "the install week never changes");
+        assert_eq!(second.iw, "2026-11", "the install month never changes");
         record(&conn, &second, saturday).unwrap();
 
         // Monday: a new week, same month.
@@ -209,12 +224,25 @@ mod tests {
     }
 
     #[test]
-    fn can_be_switched_off() {
+    fn counts_only_after_a_yes() {
         let conn = crate::store::open_in_memory().unwrap();
+        assert!(!switched_on(&conn), "no choice made is no");
+        db::set_setting(&conn, "usage_stats", "on").unwrap();
         assert!(switched_on(&conn));
         db::set_setting(&conn, "usage_stats", "off").unwrap();
         assert!(!switched_on(&conn));
         assert!(!enabled(&conn));
+    }
+
+    #[test]
+    fn an_install_week_from_an_older_version_becomes_its_month() {
+        let conn = crate::store::open_in_memory().unwrap();
+        db::set_setting(&conn, "stats_install_week", "2026-W46").unwrap();
+        let ping = next(&conn, at(2026, 12, 3), "0.2.0").unwrap().unwrap();
+        assert_eq!((ping.iw.as_str(), ping.first), ("2026-11", false));
+        // Week 1 of 2027 starts on Monday 4 January.
+        assert_eq!(as_month("2027-W01").as_deref(), Some("2027-01"));
+        assert_eq!(as_month("2026-W01").as_deref(), Some("2025-12"));
     }
 
     #[test]
@@ -232,8 +260,8 @@ mod tests {
     #[test]
     fn describes_the_system_without_anything_personal() {
         let ubuntu = "NAME=\"Ubuntu\"\nID=ubuntu\nID_LIKE=debian\nVERSION_ID=\"24.04\"\nPRETTY_NAME=\"Ubuntu 24.04.1 LTS\"\n";
-        assert_eq!(describe(ubuntu, "/usr/bin/openwren", false, false), ("deb".into(), "ubuntu-24.04".into()));
-        assert_eq!(describe(ubuntu, "/home/someone/build/openwren", false, false), ("other".into(), "ubuntu-24.04".into()));
+        assert_eq!(describe(ubuntu, "/usr/bin/openwren", false, false), ("deb".into(), "ubuntu-24".into()), "major version only");
+        assert_eq!(describe(ubuntu, "/home/someone/build/openwren", false, false), ("other".into(), "ubuntu-24".into()));
         assert_eq!(describe(ubuntu, "/tmp/.mount_x/usr/bin/openwren", true, false).0, "appimage");
         let fedora = "ID=fedora\nVERSION_ID=41\n";
         assert_eq!(describe(fedora, "/usr/bin/openwren", false, false), ("rpm".into(), "fedora-41".into()));
@@ -241,6 +269,6 @@ mod tests {
         assert_eq!(describe(arch, "/usr/bin/openwren", false, false), ("other".into(), "arch".into()));
         assert_eq!(describe("", "/usr/bin/openwren", false, true), ("flatpak".into(), "other".into()));
         // A hand-edited file cannot smuggle text into the request.
-        assert_eq!(describe("ID=\"my host; rm -rf\"\nVERSION_ID=\"1.2 beta\"\n", "/usr/bin/x", false, false).1, "myhostrm-rf-1.2");
+        assert_eq!(describe("ID=\"my host; rm -rf\"\nVERSION_ID=\"1.2 beta\"\n", "/usr/bin/x", false, false).1, "myhostrm-rf-1");
     }
 }

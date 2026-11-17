@@ -527,8 +527,8 @@ function Privacy() {
       <p className={note}>The logos are part of OpenWren, so nothing is looked up online. A logo appears only when the address belongs to that company and your mail server confirmed the sender; while OpenWren is still learning which server that is, or if yours does no such checks, senders keep their initials.</p>
       <Options label="Look for new versions" value={settings.update_check === "off" ? "off" : "on"} onChange={(v) => void setSetting("update_check", v)} options={onOff} />
       <p className={note}>A few times a day OpenWren downloads one small public file that says which version is the newest, and tells you when yours is older. The request carries nothing about you or this computer.</p>
-      <Options label="Anonymous usage count" value={settings.usage_stats === "off" ? "off" : "on"} onChange={(v) => void setSetting("usage_stats", v)} options={onOff} />
-      <p className={note}>Once a day OpenWren tells the project that one more copy is in use. Knowing that people rely on it is what motivates the maintainer to keep the code maintained in the long term. The request carries no name, address, mail or identifier, and the server keeps only totals.</p>
+      <Options label="Anonymous usage count" value={settings.usage_stats === "on" ? "on" : "off"} onChange={(v) => void setSetting("usage_stats", v)} options={onOff} />
+      <p className={note}>Once a day OpenWren tells the project that one more copy is in use. Knowing that people rely on it is what motivates the maintainer to keep the code maintained in the long term. It is sent only if you switch it on. The request carries no name, address, mail or identifier, and the server keeps only totals.</p>
       <div className="mb-1 font-semibold">Blocked senders</div>
       <p className="mb-2 text-[13px] text-ink2">
         Mail from these senders goes straight to Junk, without a notification. To block someone, right-click one of their messages and choose "Block sender". OpenWren does the moving, so it happens while OpenWren is running.

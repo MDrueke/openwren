@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- The anonymous usage count is now a choice you make: the welcome screen asks with neither answer picked, and nothing is sent until you say yes. If you never answered, OpenWren asks once in the folder list.
+- The usage count sends less: the major system version ("ubuntu-24") and the month of installation, instead of the full version and the week.
+- PRIVACY.md no longer says that two requests can never be linked: on an uncommon system the facts in them may be shared by only a few installations.
+
 ## 0.1.11
 
 - Accounts can be put in any order in Settings, Accounts: drag one by its dots, or use the arrow keys. The folder list follows.
