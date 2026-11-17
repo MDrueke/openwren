@@ -7,7 +7,7 @@ OpenWren keeps your mail on your computer. There is no OpenWren account and no O
 | Request | When | To whom |
 |---|---|---|
 | Reading and sending mail | Always, for the accounts you add | Your own mail servers (IMAP and SMTP) |
-| Google sign-in | Only if you choose "Sign in with Google" | Google |
+| Google sign-in | Only if you choose "Sign in with Google", and once more when you remove that account, to cancel its access | Google |
 | Remote images in a message | Only when you click "Show images", or for senders you chose to always allow | The server named in the message |
 | Unsubscribe | Only when you confirm "Unsubscribe" on a mailing | The sender's unsubscribe address |
 | Opening a link | When you click one | Your browser opens it |

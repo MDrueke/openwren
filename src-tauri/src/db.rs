@@ -103,8 +103,24 @@ pub fn learn_auth_server(conn: &Connection, account_id: i64) -> Result<bool> {
 // ---------- files chosen for attaching ----------
 
 pub fn remember_picked(conn: &Connection, path: &str) -> Result<()> {
-    conn.execute("INSERT OR IGNORE INTO picked_files (path) VALUES (?1)", [path])?;
+    conn.execute(
+        "INSERT INTO picked_files (path, picked_at) VALUES (?1, ?2) ON CONFLICT (path) DO UPDATE SET picked_at = excluded.picked_at",
+        params![path, chrono::Utc::now().timestamp()],
+    )?;
     Ok(())
+}
+
+/// How long a chosen file is remembered when no draft uses it.
+const KEEP_PICKS_FOR: i64 = 7 * 86_400;
+
+/// Forget files chosen more than a week ago that no saved draft still attaches. The list
+/// is a history of the user's files, so it is kept only as long as it is needed.
+pub fn forget_old_picks(conn: &Connection, now: i64) -> Result<usize> {
+    Ok(conn.execute(
+        "DELETE FROM picked_files WHERE picked_at < ?1
+           AND NOT EXISTS (SELECT 1 FROM drafts d WHERE instr(d.content, json_quote(picked_files.path)) > 0)",
+        [now - KEEP_PICKS_FOR],
+    )?)
 }
 
 /// True when the user chose this file in the file dialog at some point.
@@ -1002,6 +1018,21 @@ mod tests {
         add_mail_checked_by(&conn, account, "mx.attacker.example", 100);
         learn_auth_server(&conn, account).unwrap();
         assert_eq!(auth_server(&conn, account).unwrap().as_deref(), Some("mx.google.com"));
+    }
+
+    #[test]
+    fn chosen_files_are_forgotten_after_a_week_unless_a_draft_attaches_them() {
+        let conn = crate::store::open_in_memory().unwrap();
+        let account = insert_account(&conn, "ann@example.test", "Ann", "imap", &AccountSettings::default()).unwrap();
+        for path in ["/home/ann/old.pdf", "/home/ann/in draft.pdf", "/home/ann/new.pdf"] {
+            remember_picked(&conn, path).unwrap();
+        }
+        conn.execute("UPDATE picked_files SET picked_at = 0 WHERE path != '/home/ann/new.pdf'", []).unwrap();
+        conn.execute("INSERT INTO drafts (account_id, content, updated_at) VALUES (?1, ?2, 0)", params![account, r#"{"attachments":["/home/ann/in draft.pdf"]}"#]).unwrap();
+        assert_eq!(forget_old_picks(&conn, chrono::Utc::now().timestamp()).unwrap(), 1);
+        assert!(!was_picked(&conn, "/home/ann/old.pdf").unwrap());
+        assert!(was_picked(&conn, "/home/ann/in draft.pdf").unwrap());
+        assert!(was_picked(&conn, "/home/ann/new.pdf").unwrap());
     }
 
     #[test]

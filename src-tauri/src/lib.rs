@@ -463,17 +463,33 @@ fn is_public(ip: std::net::IpAddr) -> bool {
         let [first, second, ..] = a.octets();
         !(a.is_private() || a.is_loopback() || a.is_link_local() || a.is_unspecified() || a.is_broadcast() || a.is_multicast() || a.is_documentation())
             && first != 0
+            && first < 240 // reserved
             && !(first == 100 && (64..128).contains(&second)) // shared address space used by internet providers
+            && !(first == 198 && (18..20).contains(&second)) // network benchmarking
+            && !(first == 192 && second == 0 && a.octets()[2] == 0) // protocol assignments
     };
     match ip {
         IpAddr::V4(a) => v4_public(a),
-        IpAddr::V6(a) => match a.to_ipv4_mapped() {
-            Some(mapped) => v4_public(mapped),
-            None => {
-                let first = a.segments()[0];
-                !(a.is_loopback() || a.is_unspecified() || a.is_multicast() || (first & 0xfe00) == 0xfc00 || (first & 0xffc0) == 0xfe80)
+        IpAddr::V6(a) => {
+            let s = a.segments();
+            let embedded = |high: u16, low: u16| std::net::Ipv4Addr::from((u32::from(high) << 16) | u32::from(low));
+            if let Some(mapped) = a.to_ipv4_mapped() {
+                v4_public(mapped)
+            } else if s[0] == 0x64 && s[1] == 0xff9b && s[2..6] == [0, 0, 0, 0] {
+                v4_public(embedded(s[6], s[7])) // NAT64: an IPv4 address in an IPv6 one
+            } else if s[0] == 0x2002 {
+                v4_public(embedded(s[1], s[2])) // 6to4
+            } else {
+                !(a.is_loopback()
+                    || a.is_unspecified()
+                    || a.is_multicast()
+                    || (s[0] & 0xfe00) == 0xfc00
+                    || (s[0] & 0xffc0) == 0xfe80
+                    || (s[0] == 0x2001 && s[1] == 0) // Teredo tunnels
+                    || (s[0] == 0x2001 && s[1] == 0x0db8) // documentation
+                    || (s[0] == 0x64 && s[1] == 0xff9b)) // local NAT64
             }
-        },
+        }
     }
 }
 
@@ -807,7 +823,15 @@ async fn add_account(app: AppHandle, state: State<'_, AppState>, account: NewAcc
 #[tauri::command]
 async fn remove_account(app: AppHandle, state: State<'_, AppState>, id: i64) -> Result<()> {
     let (address, _, _) = db::account_identity(&db::lock(&state.db), id)?;
+    let (_, settings) = db::account_settings(&db::lock(&state.db), id)?;
     state.interactive.lock().await.remove(&id);
+    // A Google account's refresh token stays valid at Google until it is revoked. Ask
+    // Google to cancel it before the keyring copy goes; a failure does not stop the removal.
+    if settings.oauth {
+        if let Ok(token) = load_password(address.clone()).await {
+            let _ = oauth::revoke(&token).await;
+        }
+    }
     // A large mailbox takes a while to delete. It goes in steps on a thread of its own, so the
     // rest of the app keeps answering meanwhile.
     let db = state.db.clone();
@@ -1269,14 +1293,51 @@ async fn message_source(state: State<'_, AppState>, id: i64) -> Result<String> {
 /// File types OpenWren hands to another program: documents, pictures, sound, video
 /// and archives. The name and content of an attachment are chosen by the sender, so
 /// everything else (programs, scripts, web pages, installers, files without a type)
-/// can only be saved, never opened from here.
+/// can only be saved, never opened from here. Old Office formats (`.doc`, `.xls`, `.ppt`)
+/// can carry macros and `.rtf` is a common carrier of exploits, so they are saved first too.
 const OPENABLE: &[&str] = &[
-    "pdf", "txt", "csv", "tsv", "md", "log", "rtf", "ics", "vcf", "eml", "epub",
-    "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp",
+    "pdf", "txt", "csv", "tsv", "md", "log", "ics", "vcf", "eml", "epub",
+    "docx", "xlsx", "pptx", "odt", "ods", "odp",
     "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff", "heic", "avif",
     "mp3", "wav", "ogg", "oga", "flac", "m4a", "opus", "mp4", "m4v", "mkv", "webm", "mov", "avi",
     "zip", "tar", "gz", "tgz", "bz2", "xz", "7z", "rar",
 ];
+
+/// Write `data` to `path` readable by this user only, from the first byte: the folders
+/// are created private and the file is created private, not changed afterwards. The
+/// copy is not encrypted. (On Windows the cache folder is already private to the user.)
+fn write_private(dir: &std::path::Path, path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut folders = std::fs::DirBuilder::new();
+    folders.recursive(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+        folders.mode(0o700);
+        folders.create(dir)?;
+        // Folders made earlier, or by an older version, are made private too.
+        for folder in [dir.parent(), Some(dir)].into_iter().flatten() {
+            std::fs::set_permissions(folder, std::fs::Permissions::from_mode(0o700))?;
+        }
+    }
+    #[cfg(not(unix))]
+    folders.create(dir)?;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path)?;
+    // A file that was already there keeps its old mode when opened: set it before writing.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+    }
+    file.write_all(data)
+}
 
 fn opened_attachments_dir(app: &AppHandle) -> Result<std::path::PathBuf> {
     Ok(app.path().app_cache_dir().map_err(|e| Error(e.to_string()))?.join("opened-attachments"))
@@ -1409,17 +1470,9 @@ async fn open_attachment(app: AppHandle, state: State<'_, AppState>, id: i64, in
     let raw = fetch_raw(&state, id).await?;
     let data = parse::attachment_bytes(&raw, index).ok_or(Error("That attachment could not be read.".into()))?;
     let dir = opened_attachments_dir(&app)?.join(format!("{id}-{index}"));
-    tokio::fs::create_dir_all(&dir).await?;
     let path = dir.join(&name);
-    tokio::fs::write(&path, data).await.map_err(|e| Error(format!("Could not write the file: {e}")))?;
-    // The copy is not encrypted: keep it readable by this user only. (On Windows the
-    // temporary folder is already private to the user.)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
-        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
-    }
+    let target = path.clone();
+    tokio::task::spawn_blocking(move || write_private(&dir, &target, &data)).await?.map_err(|e| Error(format!("Could not write the file: {e}")))?;
     app.opener().open_path(path.to_string_lossy(), None::<&str>).map_err(|e| Error(format!("No program on this computer opens {name}: {e}")))?;
     Ok(())
 }
@@ -1461,10 +1514,41 @@ mod tests {
 
     #[test]
     fn only_documents_and_media_open_from_mail() {
-        for no in ["html", "htm", "svg", "desktop", "sh", "exe", "jar", "js", "flatpakref", "docm", ""] {
+        for no in ["html", "htm", "svg", "desktop", "sh", "exe", "jar", "js", "flatpakref", "docm", "doc", "xls", "ppt", "rtf", ""] {
             assert!(!OPENABLE.contains(&no), "{no}");
         }
         assert!(OPENABLE.contains(&"pdf") && OPENABLE.contains(&"docx") && OPENABLE.contains(&"png"));
+    }
+
+    #[test]
+    fn unencrypted_connections_go_only_to_this_computer() {
+        let on = |host: &str, security: Security| ServerSettings { host: host.into(), port: 143, security, username: "a".into() };
+        for local in ["localhost", "127.0.0.1", "127.4.5.6", "::1", "[::1]", " LocalHost "] {
+            assert!(on(local, Security::None).check_security().is_ok(), "{local}");
+        }
+        for remote in ["imap.example.com", "192.168.1.10", "10.0.0.1", "localhost.evil.example", "::ffff:127.0.0.1x"] {
+            assert!(on(remote, Security::None).check_security().is_err(), "{remote}");
+        }
+        assert!(on("imap.example.com", Security::Tls).check_security().is_ok());
+        assert!(on("imap.example.com", Security::Starttls).check_security().is_ok());
+    }
+
+    #[test]
+    fn opened_attachments_are_private_from_the_start() {
+        let base = std::env::temp_dir().join(format!("openwren-test-{}", std::process::id()));
+        let dir = base.join("opened-attachments").join("1-0");
+        let path = dir.join("letter.pdf");
+        super::write_private(&dir, &path, b"secret").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"secret");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = |p: &std::path::Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode(&path), 0o600);
+            assert_eq!(mode(&dir), 0o700);
+            assert_eq!(mode(dir.parent().unwrap()), 0o700);
+        }
+        std::fs::remove_dir_all(base).unwrap();
     }
 
     #[test]
@@ -1489,10 +1573,10 @@ mod tests {
 
     #[test]
     fn only_public_addresses_may_receive_an_unsubscribe_request() {
-        for private in ["127.0.0.1", "10.0.0.5", "192.168.1.1", "172.16.4.4", "169.254.169.254", "100.64.0.1", "0.0.0.0", "::1", "fe80::1", "fd00::1", "::ffff:192.168.1.1"] {
+        for private in ["127.0.0.1", "10.0.0.5", "192.168.1.1", "172.16.4.4", "169.254.169.254", "100.64.0.1", "0.0.0.0", "::1", "fe80::1", "fd00::1", "::ffff:192.168.1.1", "198.18.0.1", "198.19.255.1", "192.0.0.8", "240.0.0.1", "255.255.255.254", "64:ff9b::a00:1", "64:ff9b::7f00:1", "2002:c0a8:101::1", "2002:7f00:1::1", "2001:0:4136:e378::1", "2001:db8::1", "64:ff9b:1::1"] {
             assert!(!is_public(private.parse().unwrap()), "{private}");
         }
-        for public in ["8.8.8.8", "93.184.216.34", "2606:4700:4700::1111"] {
+        for public in ["8.8.8.8", "93.184.216.34", "2606:4700:4700::1111", "64:ff9b::808:808", "2002:808:808::1", "198.20.0.1", "192.0.1.1"] {
             assert!(is_public(public.parse().unwrap()), "{public}");
         }
     }
@@ -1524,6 +1608,8 @@ pub fn run() {
             let conn = store::open(&database, &database_key(&database)?)?;
             // Before any usage request: installations from before the count became a choice keep their setting.
             stats::keep_earlier_default(&conn).map_err(|e| e.0)?;
+            // Paths of files once chosen for attaching are a history of the user's files: keep them only while needed.
+            let _ = db::forget_old_picks(&conn, now());
             let accounts = db::list_accounts(&conn).map_err(|e| e.0)?;
             // Start at login unless switched off; this also follows the program when it moves.
             autostart::apply(app.handle(), db::get_setting(&conn, "start_at_login").ok().flatten().as_deref() != Some("off"));
