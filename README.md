@@ -15,8 +15,8 @@ years, and protection against trackers and phishing built in.
 
 **If you like it, please star it.** It is the simplest way to help the project
 get found.
-If you rely on it, you can also [sponsor it](https://github.com/sponsors/VinceGHER),
-from $5 a month: it keeps OpenWren free and maintained.
+If you rely on it, you can also [sponsor it](https://github.com/sponsors/VinceGHER):
+it keeps OpenWren free and maintained.
 
 <a href="https://www.star-history.com/?repos=vincegher%2Fopenwren&type=date&legend=top-left">
  <picture>
