@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { backend, errorText } from "./backend";
 import type { UpdateAvailable } from "./backend";
 import { longTime, useTwelveHourClock } from "./lib/dates";
+import { parseMailto } from "./lib/mailto";
 import { cleanMail } from "./lib/privacy";
 import { SIGNATURE_CID, hasPicture, signatureHtml } from "./lib/signature";
 import { whatsNew } from "./lib/whatsNew";
@@ -127,6 +128,8 @@ interface State {
   /** Send this sender's mail (or their whole domain's) to Junk from now on. */
   blockSender: (id: number, wholeDomain: boolean) => Promise<void>;
   compose: (seed?: Partial<Draft>) => void;
+  /** Open a link from mail: `mailto:` in the composer, web addresses in the browser. */
+  openLink: (url: string) => void;
   /** Open the composer on a reply or forward of the open message; `html` is text already typed. */
   reply: (kind: "reply" | "reply-all" | "forward", html?: string) => void;
   /** Send a short reply to the open message straight from the reading pane. */
@@ -595,6 +598,22 @@ export const useStore = create<State>((set, get) => {
         return;
       }
       set({ draft: { accountId, to: "", cc: "", bcc: "", subject: "", html: "", quote: "", inReplyTo: null, references: null, attachments: [], isReply: false, ...seed } });
+    },
+
+    openLink: (url) => {
+      const mail = parseMailto(url);
+      if (!mail) {
+        void backend.openLink(url).catch((e) => get().showToast(errorText(e)));
+        return;
+      }
+      const html = mail.body
+        .split(/\n{2,}/)
+        .filter((p) => p.trim())
+        .map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
+        .join("");
+      // Write from the account the link arrived in.
+      const accountId = get().detail?.accountId;
+      get().compose({ to: mail.to, cc: mail.cc, subject: mail.subject, html, ...(accountId === undefined ? {} : { accountId }) });
     },
 
     quickReply: async (text) => {

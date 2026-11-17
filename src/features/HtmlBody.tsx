@@ -1,7 +1,6 @@
 import interFile from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 import nunitoFile from "@fontsource-variable/nunito/files/nunito-latin-wght-normal.woff2?url";
 import { useMemo, useRef, useState } from "react";
-import { backend, errorText } from "../backend";
 import { Button } from "../components/ui";
 import { fontChoice, fontStack } from "../lib/font";
 import { useStore } from "../store";
@@ -66,7 +65,7 @@ export function HtmlBody({ html, note, sender, confirmed }: { html: string; note
   }, [html]);
   /** Bumped to draw the frame afresh after a link took it away. */
   const [shown, setShown] = useState(0);
-  const showToast = useStore((s) => s.showToast);
+  const openLink = useStore((s) => s.openLink);
 
   const doc = useMemo(() => {
     const img = images ? "data: cid: https:" : "data: cid:";
@@ -100,7 +99,7 @@ export function HtmlBody({ html, note, sender, confirmed }: { html: string; note
       const at = frame.current?.contentWindow?.location;
       if (at && at.pathname.endsWith("/link.html")) {
         const target = decodeURIComponent(at.hash.slice(1));
-        if (/^(https?:|mailto:)/i.test(target)) void backend.openLink(target).catch((e) => showToast(errorText(e)));
+        if (/^(https?:|mailto:)/i.test(target)) openLink(target);
         setShown((n) => n + 1);
         return;
       }
@@ -120,7 +119,7 @@ export function HtmlBody({ html, note, sender, confirmed }: { html: string; note
       e.preventDefault();
       const href = link.getAttribute("href") ?? "";
       const target = link.getAttribute("data-href") ?? href;
-      if (/^(https?:|mailto:)/i.test(target)) void backend.openLink(target).catch((err) => showToast(errorText(err)));
+      if (/^(https?:|mailto:)/i.test(target)) openLink(target);
     });
   }
 
