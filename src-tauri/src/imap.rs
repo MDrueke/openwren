@@ -39,6 +39,7 @@ impl async_imap::Authenticator for XOAuth2 {
 }
 
 async fn open(settings: &ImapSettings, secret: &Secret) -> Result<Session> {
+    settings.check_security()?;
     let tcp = TcpStream::connect((settings.host.as_str(), settings.port)).await?;
     let client = match settings.security {
         Security::Tls => {

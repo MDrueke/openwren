@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- An attachment you open is written readable by you only from the first moment; its folder used to be readable by others for an instant.
+- Old Office files (`.doc`, `.xls`, `.ppt`) and `.rtf` files no longer open straight from mail, since they can carry macros or exploits. Save them first if you trust the sender.
+- Links in image maps are removed from mail, so every link goes through the link checks.
+- A message can no longer position text over the reading pane, such as a fake "verified" mark.
+- "None (not secure)" now works only for a mail server on this computer, as the setting always said.
+- Unsubscribe requests also refuse a few more special address ranges.
+- Removing a Google account asks Google to cancel its access; before, the sign-in stayed valid at Google.
+- Files chosen for attaching are forgotten after a week unless a draft still attaches them.
+- If you used version 0.1.0, which stored mail unencrypted: later versions encrypted the database, but the disk space of the old unencrypted file is only overwritten over time.
+
 ## 0.1.11
 
 - Accounts can be put in any order in Settings, Accounts: drag one by its dots, or use the arrow keys. The folder list follows.
