@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The mail cleaner (ammonia) is updated to 4.2.5, which fixes a flaw in handling SVG and MathML. OpenWren does not allow those tags in mail, so it was not affected, but the update is taken anyway.
+
 ## 0.1.11
 
 - Accounts can be put in any order in Settings, Accounts: drag one by its dots, or use the arrow keys. The folder list follows.
