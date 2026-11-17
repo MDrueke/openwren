@@ -22,6 +22,26 @@ pub struct ServerSettings {
     pub security: Security,
     pub username: String,
 }
+impl ServerSettings {
+    /// True for a server on this computer, the only place an unencrypted connection may
+    /// go: nothing crosses a network there.
+    pub fn is_on_this_computer(&self) -> bool {
+        let host = self.host.trim().trim_start_matches('[').trim_end_matches(']').to_ascii_lowercase();
+        host == "localhost" || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
+    }
+
+    /// Refuse an unencrypted connection to anything but this computer.
+    pub fn check_security(&self) -> crate::error::Result<()> {
+        if self.security == Security::None && !self.is_on_this_computer() {
+            return Err(crate::error::Error(format!(
+                "OpenWren connects to {} only with encryption. \"None (not secure)\" is for a test server on this computer.",
+                self.host.trim()
+            )));
+        }
+        Ok(())
+    }
+}
+
 pub type ImapSettings = ServerSettings;
 
 /// What is stored in `accounts.settings`: IMAP for incoming mail, SMTP for outgoing mail.

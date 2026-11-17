@@ -157,6 +157,16 @@ pub async fn refresh(config: &Config, refresh_token: &str) -> Result<Tokens> {
     token_request(config, &form).await
 }
 
+/// Ask Google to cancel a token, so it stops working for good. Used when a Google
+/// account is removed: deleting the keyring copy alone leaves the token valid at Google.
+pub async fn revoke(token: &str) -> Result<()> {
+    let response = http()?.post("https://oauth2.googleapis.com/revoke").form(&[("token", token)]).send().await?;
+    if !response.status().is_success() {
+        return Err(Error(format!("Google did not revoke the sign-in ({}).", response.status())));
+    }
+    Ok(())
+}
+
 /// The SASL XOAUTH2 initial response for IMAP.
 pub fn xoauth2(user: &str, access_token: &str) -> String {
     format!("user={user}\x01auth=Bearer {access_token}\x01\x01")
