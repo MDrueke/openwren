@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- The anonymous usage count is now a choice you make: the welcome screen asks with neither answer picked, and nothing is sent until you say yes. If you never answered, OpenWren asks once in the folder list.
+- The anonymous usage count is now a choice you make: the welcome screen asks with neither answer picked, and nothing is sent until you say yes.
 - The usage count sends less: the major system version ("ubuntu-24") and the month of installation, instead of the full version and the week.
 - PRIVACY.md no longer says that two requests can never be linked: on an uncommon system the facts in them may be shared by only a few installations.
 

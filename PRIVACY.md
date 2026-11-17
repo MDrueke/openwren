@@ -21,7 +21,7 @@ Nothing else. No analytics library, no crash reporter.
 
 ## The anonymous usage count
 
-Once a day the app tells the project that one more copy is in use, so we know how many people rely on it; that is what motivates the maintainer to keep the code maintained in the long term. It is sent only if you choose to: the welcome screen asks, with neither answer picked in advance, and an installation that never answered is asked once in the folder list. Until you say yes, nothing is sent. Change your answer in **Settings → Privacy → Anonymous usage count**.
+Once a day the app tells the project that one more copy is in use, so we know how many people rely on it; that is what motivates the maintainer to keep the code maintained in the long term. It is sent only if you choose to: the welcome screen asks, with neither answer picked in advance. Until you say yes, nothing is sent. Change your answer in **Settings → Privacy → Anonymous usage count**.
 
 The request looks like this:
 
