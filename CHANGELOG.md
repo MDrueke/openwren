@@ -5,6 +5,8 @@
 - The anonymous usage count is now a choice you make: the welcome screen asks with neither answer picked, and nothing is sent until you say yes. If you already use OpenWren, your setting stays as it was.
 - The usage count sends less: the major system version ("ubuntu-24") and the month of installation, instead of the full version and the week.
 - PRIVACY.md no longer says that two requests can never be linked: on an uncommon system the facts in them may be shared by only a few installations.
+- The phishing warnings catch more tricks: a company name anywhere in the sender name ("Service PayPal", "PayPal-Support", "PayPal Inc."), names spelt with look-alike letters ("PayPaI" with a capital i, "Micr0soft"), addresses that imitate a company's ("paypa1.com"), and companies without a logo such as Microsoft, Amazon and DHL.
+- Sites on shared hosting (github.io, pages.dev and the like) are told apart, using the Public Suffix List bundled with the app.
 - The mail cleaner (ammonia) is updated to 4.2.5, which fixes a flaw in handling SVG and MathML. OpenWren does not allow those tags in mail, so it was not affected, but the update is taken anyway.
 
 ## 0.1.11
