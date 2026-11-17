@@ -13,21 +13,21 @@ It runs at `https://stats.openwren.app`.
 The app sends this once a day (`POST /ping`):
 
 ```json
-{ "v": "0.1.0", "pkg": "deb", "os": "ubuntu-24.04", "arch": "x86_64",
-  "d": true, "w": true, "m": false, "first": false, "iw": "2026-W46" }
+{ "v": "0.1.12", "pkg": "deb", "os": "ubuntu-24", "arch": "x86_64",
+  "d": true, "w": true, "m": false, "first": false, "iw": "2026-11" }
 ```
 
 | Field   | Meaning                                                                 |
 |---------|-------------------------------------------------------------------------|
 | `v`     | App version                                                             |
 | `pkg`   | How it was installed: `deb`, `rpm`, `appimage`, `flatpak`, `dmg` (macOS), `exe` (Windows), `other` |
-| `os`    | Linux distribution and version, such as `ubuntu-24.04`; `macos` or `windows` on those systems |
+| `os`    | Linux distribution and major version, such as `ubuntu-24` (versions before 0.1.12 sent `ubuntu-24.04`); `macos` or `windows` on those systems |
 | `arch`  | `x86_64` or `aarch64`                                                   |
 | `d`     | This is the sender's first request today                                |
 | `w`     | ... its first this week                                                 |
 | `m`     | ... its first this month                                                |
 | `first` | ... its first ever                                                      |
-| `iw`    | The ISO week in which the app was first used                            |
+| `iw`    | The month the app was first used, such as `2026-11` (versions before 0.1.12 sent the ISO week, such as `2026-W46`) |
 
 **Stored:** one table, `counters`. Each row is one combination of
 `(day, v, pkg, os, arch, d, w, m, first, iw)` and a number `n`: how many
@@ -51,14 +51,14 @@ observability and logs are switched off in `wrangler.toml`; leave them off.
 
 Answers `204` when counted. Answers `400` when the body is not valid JSON, is
 larger than 1 KB, or a field is missing or of the wrong type (`v` must look
-like `1.2.3`, `iw` like `2026-W46`, the four flags must be `true`/`false`).
+like `1.2.3`, `iw` like `2026-11` or `2026-W46`, the four flags must be `true`/`false`).
 Unknown extra fields are ignored. An unknown `pkg`, `os` or `arch` is counted
 as `other`. `os` is accepted when it is `macos`, `windows`, or one of the
 Linux distributions ubuntu, debian, fedora, arch, linuxmint, pop, opensuse,
 opensuse-tumbleweed, opensuse-leap, manjaro, nixos, rhel, centos, rocky,
 almalinux, zorin, elementary, endeavouros, kali, optionally followed by `-`
 and a version such as `24.04` (one or two digits, optionally a dot and one or
-two more). `iw` must be a week from 01 to 53, in a year from 2026 to next year.
+two more). `iw` must be a month from 01 to 12, or a week from 01 to 53, in a year from 2026 to next year.
 
 ### `GET /api/daily?days=N`
 
@@ -92,8 +92,10 @@ Weeks and months are judged by the app from its own clock in UTC, while `day`
 is the server's UTC date, so a request sent around midnight can land on the
 neighbouring day. Totals are not affected.
 
-`byVersion`, `byPackage` and `bySystem` count `d` requests over the whole
-period (so they are user-days, not distinct people), largest first. Any group
+`byVersion`, `byPackage` and `bySystem` count installations in the current
+month: each one once, with its first request of the month (`m`), whatever the
+`days` period. They add up to the month's users, and the version is the one
+each copy had on its first day of the month. Largest first. Any group
 with fewer than 5 is added into a single `other` entry, together with what was
 already stored as `other`, so small groups cannot be singled out. The `other`
 entry is sorted by its count like any other.
@@ -134,7 +136,7 @@ In another terminal:
 # Count one request: prints 204
 curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8787/ping \
   -H 'Content-Type: application/json' \
-  -d '{"v":"0.1.0","pkg":"deb","os":"ubuntu-24.04","arch":"x86_64","d":true,"w":true,"m":false,"first":false,"iw":"2026-W46"}'
+  -d '{"v":"0.1.0","pkg":"deb","os":"ubuntu-24","arch":"x86_64","d":true,"w":true,"m":false,"first":false,"iw":"2026-11"}'
 
 # A malformed request: prints 400
 curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8787/ping \

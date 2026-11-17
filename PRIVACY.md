@@ -11,7 +11,7 @@ OpenWren keeps your mail on your computer. There is no OpenWren account and no O
 | Remote images in a message | Only when you click "Show images", or for senders you chose to always allow | The server named in the message |
 | Unsubscribe | Only when you confirm "Unsubscribe" on a mailing | The sender's unsubscribe address |
 | Opening a link | When you click one | Your browser opens it |
-| Anonymous usage count | Once a day, unless switched off | `stats.openwren.app` |
+| Anonymous usage count | Once a day, only if you chose "Count this copy" | `stats.openwren.app` |
 | Looking for a new version | A few times a day, unless switched off | `packages.openwren.app` |
 | Installing an update | Only when you click "Install and restart" (AppImage, Windows, macOS) | `packages.openwren.app` |
 
@@ -21,25 +21,26 @@ Nothing else. No analytics library, no crash reporter.
 
 ## The anonymous usage count
 
-Once a day the app tells the project that one more copy is in use, so we know how many people rely on it; that is what motivates the maintainer to keep the code maintained in the long term. It is on by default. Switch it off on the welcome screen or in **Settings → Privacy → Anonymous usage count**.
+Once a day the app tells the project that one more copy is in use, so we know how many people rely on it; that is what motivates the maintainer to keep the code maintained in the long term. It is sent only if you choose to: the welcome screen asks, with neither answer picked in advance. Until you say yes, nothing is sent. An installation set up before version 0.1.12 keeps the setting it had then: on, unless it was switched off. Change your answer in **Settings → Privacy → Anonymous usage count**.
 
 The request looks like this:
 
 ```json
-{ "v": "0.1.0", "pkg": "deb", "os": "ubuntu-24.04", "arch": "x86_64", "d": true, "w": true, "m": false, "first": false, "iw": "2026-W46" }
+{ "v": "0.1.0", "pkg": "deb", "os": "ubuntu-24", "arch": "x86_64", "d": true, "w": true, "m": false, "first": false, "iw": "2026-11" }
 ```
 
 | Field | Meaning |
 |---|---|
 | `v` | App version |
 | `pkg` | How it was installed: deb, rpm, appimage, flatpak or other |
-| `os` | Distribution and version |
+| `os` | Distribution and its major version |
 | `arch` | Processor type |
 | `d`, `w`, `m`, `first` | Whether this is the installation's first request today, this week, this month, ever |
-| `iw` | The week the app was first used |
+| `iw` | The month the app was first used (versions before 0.1.12 sent the week) |
 
-- There is **no identifier**: no install id, no account, no cookie. Two requests from the same computer cannot be linked.
-- The server adds one to a counter and keeps nothing else: not the request, not your IP address.
+- There is **no identifier**: no install id, no account, no cookie.
+- The facts are kept coarse (the major system version, the month of installation) so that many installations share them. On an uncommon system, though, the combination may be shared by only a few installations, and then requests on different days could be told to come from one of those few.
+- The server adds one to a counter and keeps nothing else: not the request, not your IP address. Like any web request, it does see the IP address while answering.
 - A day the computer was off is not reported later.
 - The totals are public on the project's statistics page.
 
