@@ -34,8 +34,9 @@ describe("parsePing", () => {
     for (const v of ["0.1", "0.1.0.1", "v0.1.0", "0.1.0-beta", "1234.0.0", "0.1.0\n", ""]) expect(parse({ v })).toBeNull();
   });
 
-  it("checks the install week format", () => {
-    for (const iw of ["2026-46", "2026-W4", "26-W46", "2026-W461", "2026-w46", ""]) expect(parse({ iw })).toBeNull();
+  it("checks the install week or month format", () => {
+    for (const iw of ["2026-46", "2026-W4", "26-W46", "2026-W461", "2026-w46", "2026-13", "2026-00", "2026-1", "2025-11", ""]) expect(parse({ iw })).toBeNull();
+    for (const iw of ["2026-W46", "2026-11", "2027-01"]) expect(parse({ iw })?.iw).toBe(iw);
   });
 
   it("keeps known packages and stores anything else as other", () => {

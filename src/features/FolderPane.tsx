@@ -139,6 +139,32 @@ export function statusText(p: Progress | undefined): string {
 }
 
 /** Shown above the sync line when a newer version exists. Opens Settings, About. */
+/**
+ * Asks once whether to count this copy, for installations that never chose: the welcome
+ * screen was skipped, or it was finished before it asked. Until then nothing is sent.
+ */
+function UsageQuestion() {
+  const asked = useStore((s) => s.settings.onboarded === "yes" && !s.settings.usage_stats);
+  const setSetting = useStore((s) => s.setSetting);
+  if (!asked) return null;
+  return (
+    <div className="mt-1 flex-none rounded-lg bg-brand/10 px-2.5 py-2 text-xs text-ink" role="group" aria-labelledby="usage-question">
+      <div id="usage-question" className="font-medium">
+        Count this copy of OpenWren?
+      </div>
+      <div className="mt-0.5 text-ink2">One anonymous request a day, so the maintainer knows people rely on it. No name, no address, no mail.</div>
+      <div className="mt-1.5 flex gap-1.5">
+        <button type="button" onClick={() => void setSetting("usage_stats", "on")} className="h-7 rounded-md bg-brand px-2.5 font-medium text-card hover:opacity-90">
+          Count it
+        </button>
+        <button type="button" onClick={() => void setSetting("usage_stats", "off")} className="h-7 rounded-md px-2.5 text-ink2 hover:bg-hover">
+          No, thanks
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function UpdateNotice() {
   const update = useStore((s) => s.update);
   const setDialog = useStore((s) => s.setDialog);
@@ -290,6 +316,7 @@ export function FolderPane({ width }: { width: number }) {
         </button>
       )}
       </div>
+      <UsageQuestion />
       <UpdateNotice />
       <SyncStatus />
     </nav>

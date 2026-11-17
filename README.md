@@ -284,15 +284,14 @@ OpenWren has no server of its own that sees your mail. It talks to your mail
 servers, and to nobody else unless you ask (showing remote images, signing in
 with Google, unsubscribing).
 
-Two requests go to the project itself. Both are on by default, and both can be
-switched off in Settings → Privacy:
+Two requests go to the project itself, both set in Settings → Privacy:
 
-- **Anonymous usage count.** Once a day the app sends one request so the
-  project can count how many people use it. It carries the app version, the
-  kind of package and system, and nothing that identifies you; the server keeps
-  only totals. The welcome screen asks about it, and nothing is sent before
-  that screen is finished.
-- **Looking for a new version.** A few times a day the app downloads one small
+- **Anonymous usage count**, only if you choose it. Once a day the app sends
+  one request so the project can count how many people use it. It carries the
+  app version, the kind of package and system, and nothing that identifies you;
+  the server keeps only totals. The welcome screen asks, with neither answer
+  picked in advance, and nothing is sent until you say yes.
+- **Looking for a new version**, on unless switched off. A few times a day the app downloads one small
   public file from `packages.openwren.app` that names the newest version. The
   request carries nothing about you or your computer, not even the version you
   have.

@@ -22,9 +22,9 @@ import { MOD } from "../lib/keys";
 const STEPS = ["Welcome", "Account", "Look", "Ready"] as const;
 
 /** The filled accent button used only here: the one obvious next step on each screen. */
-function Next({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function Next({ children, onClick, disabled }: { children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
-    <button type="button" onClick={onClick} className="inline-flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-card hover:opacity-90">
+    <button type="button" onClick={onClick} disabled={disabled} className="inline-flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-card hover:opacity-90 disabled:opacity-40">
       {children}
     </button>
   );
@@ -110,8 +110,8 @@ export function Onboarding() {
   const accounts = useStore((s) => s.accounts);
   const settings = useStore((s) => s.settings);
   const { setSetting, setDialog, setWelcome } = useStore.getState();
-  // Nothing is sent before this screen is finished, so switching it off here means no request at all.
-  const counted = settings.usage_stats !== "off";
+  // Nothing is chosen in advance: the count is sent only after "Count this copy".
+  const counted = settings.usage_stats === "on" ? true : settings.usage_stats === "off" ? false : null;
   const [step, setStep] = useState(0);
   const had = useState(accounts.length)[0];
 
@@ -230,25 +230,33 @@ export function Onboarding() {
                     ]}
                   />
                 </div>
-                <div className="mt-7 flex items-start gap-3.5 rounded-2xl border border-edge px-4 py-3.5">
-                  <div className="min-w-0 flex-1">
-                    <div id="usage-count" className="text-ink">
-                      Anonymous usage count
-                    </div>
-                    <div className="mt-0.5 text-[13px] text-ink2">
-                      One anonymous request a day tells the project that one more copy is in use: no name, no address, no mail. Seeing that people rely on OpenWren is what motivates the maintainer to keep the code maintained in the long term.
-                    </div>
+                <div className="mt-7 rounded-2xl border border-edge px-4 py-3.5">
+                  <div id="usage-count" className="text-ink">
+                    Anonymous usage count
                   </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={counted}
-                    aria-labelledby="usage-count"
-                    onClick={() => void setSetting("usage_stats", counted ? "off" : "on")}
-                    className={`mt-0.5 h-6 w-11 flex-none rounded-full p-0.5 transition-colors ${counted ? "bg-brand" : "bg-ink3/50"}`}
-                  >
-                    <span className={`block size-5 rounded-full bg-white shadow transition-transform ${counted ? "translate-x-5" : ""}`} />
-                  </button>
+                  <div className="mt-0.5 text-[13px] text-ink2">
+                    One anonymous request a day tells the project that one more copy is in use: no name, no address, no mail. Seeing that people rely on OpenWren is what motivates the maintainer to keep the code maintained in the long term. Nothing is sent unless you choose to.
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-labelledby="usage-count">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={counted === true}
+                      onClick={() => void setSetting("usage_stats", "on")}
+                      className={`h-9 rounded-lg border px-3.5 text-[14px] ${counted === true ? "border-brand bg-brand/10 text-brand" : "border-edge text-ink hover:bg-hover"}`}
+                    >
+                      Count this copy
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={counted === false}
+                      onClick={() => void setSetting("usage_stats", "off")}
+                      className={`h-9 rounded-lg border px-3.5 text-[14px] ${counted === false ? "border-brand bg-brand/10 text-brand" : "border-edge text-ink hover:bg-hover"}`}
+                    >
+                      Don't count it
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -301,7 +309,7 @@ export function Onboarding() {
               </button>
             ))}
           {step === 2 && (
-            <Next onClick={() => setStep(3)}>
+            <Next onClick={() => setStep(3)} disabled={counted === null}>
               Continue <IconArrowRight size={18} />
             </Next>
           )}
