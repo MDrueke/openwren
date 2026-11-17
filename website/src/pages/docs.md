@@ -99,5 +99,6 @@ Search covers the whole mailbox, including mail that is many years old. Filters 
 - **Warnings:** suspicious mail is flagged.
 - **Unsubscribe:** mailings can be unsubscribed from inside the app. The request is sent only after you confirm it.
 - **Usage count:** the anonymous daily request can be switched off in Settings → Privacy.
+- **New versions:** a few times a day OpenWren downloads one small public file that names the newest version. The request carries nothing about you; it can be switched off in Settings → Privacy.
 
 The [privacy page](/privacy/) lists every network request the app makes.
