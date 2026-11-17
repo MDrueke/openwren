@@ -19,6 +19,7 @@ const OS_IDS = [
 const OS_PATTERN = new RegExp(`^(?:${OS_IDS.join("|")})(?:-\\d{1,2}(?:\\.\\d{1,2})?)?$`);
 const VERSION_PATTERN = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 const WEEK_PATTERN = /^(\d{4})-W(\d{2})$/;
+const MONTH_PATTERN = /^(\d{4})-(\d{2})$/;
 /** The year OpenWren was first released: no installation is older. */
 const FIRST_YEAR = 2026;
 
@@ -29,12 +30,19 @@ const FIRST_YEAR = 2026;
  */
 export const MAX_ROWS_PER_DAY = 2000;
 
-/** A week that can exist: 01 to 53, from the first release year to next year at most. */
-function plausibleWeek(iw: string, now: Date): boolean {
-  const match = WEEK_PATTERN.exec(iw);
+/**
+ * When the app was first used: a month such as "2026-11" (sent since 0.1.12), or a
+ * week such as "2026-W46" (sent by older versions), from the first release year to
+ * next year at most.
+ */
+function plausibleInstall(iw: string, now: Date): boolean {
+  const week = WEEK_PATTERN.exec(iw);
+  const month = MONTH_PATTERN.exec(iw);
+  const match = week ?? month;
   if (!match) return false;
-  const [year, week] = [Number(match[1]), Number(match[2])];
-  return year >= FIRST_YEAR && year <= now.getUTCFullYear() + 1 && week >= 1 && week <= 53;
+  const [year, n] = [Number(match[1]), Number(match[2])];
+  if (year < FIRST_YEAR || year > now.getUTCFullYear() + 1) return false;
+  return week ? n >= 1 && n <= 53 : n >= 1 && n <= 12;
 }
 
 /** The same request with its free-form facts folded away, for days that reached the row limit. */
@@ -74,7 +82,7 @@ export function parsePing(body: string, now: Date = new Date()): Ping | null {
   if (typeof v !== "string" || !VERSION_PATTERN.test(v)) return null;
   if (typeof pkg !== "string" || typeof os !== "string" || typeof arch !== "string") return null;
   if (typeof d !== "boolean" || typeof w !== "boolean" || typeof m !== "boolean" || typeof first !== "boolean") return null;
-  if (typeof iw !== "string" || !plausibleWeek(iw, now)) return null;
+  if (typeof iw !== "string" || !plausibleInstall(iw, now)) return null;
   return {
     v,
     pkg: PACKAGES.includes(pkg) ? pkg : "other",
@@ -167,7 +175,14 @@ export function foldSmall(counts: Map<string, number>, min = MIN_GROUP): NameCou
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
-/** Build the /api/daily answer from the counter rows of the period. Rows outside it are ignored. */
+/**
+ * Build the /api/daily answer from the counter rows of the period. Rows outside it are ignored.
+ *
+ * The breakdowns by version, package and system count installations, not requests: each
+ * one is counted once, with its first request of the current month (the `m` flag). So
+ * they add up to the monthly users, and a copy used every day weighs as much as one used
+ * once. The version is the one that copy had on its first day of the month.
+ */
 export function aggregate(rows: CounterRow[], today: string, days: number): Report {
   const byDay = new Map<string, DayCount>();
   for (const day of period(today, days)) {
@@ -177,12 +192,13 @@ export function aggregate(rows: CounterRow[], today: string, days: number): Repo
   const packages = new Map<string, number>();
   const systems = new Map<string, number>();
   const add = (map: Map<string, number>, name: string, n: number) => map.set(name, (map.get(name) ?? 0) + n);
+  const month = today.slice(0, 7);
 
   for (const row of rows) {
     const entry = byDay.get(row.day);
     if (!entry) continue;
-    if (row.d) {
-      entry.daily += row.n;
+    if (row.d) entry.daily += row.n;
+    if (row.m && row.day.startsWith(month)) {
       add(versions, row.v, row.n);
       add(packages, row.pkg, row.n);
       add(systems, row.os, row.n);

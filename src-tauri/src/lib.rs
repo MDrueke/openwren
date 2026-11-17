@@ -1504,6 +1504,8 @@ pub fn run() {
             let _ = tokio_rustls::rustls::crypto::ring::default_provider().install_default();
             let database = dir.join(DATABASE);
             let conn = store::open(&database, &database_key(&database)?)?;
+            // Before any usage request: installations from before the count became a choice keep their setting.
+            stats::keep_earlier_default(&conn).map_err(|e| e.0)?;
             let accounts = db::list_accounts(&conn).map_err(|e| e.0)?;
             // Start at login unless switched off; this also follows the program when it moves.
             autostart::apply(app.handle(), db::get_setting(&conn, "start_at_login").ok().flatten().as_deref() != Some("off"));
