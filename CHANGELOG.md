@@ -8,6 +8,7 @@
 - The phishing warnings catch more tricks: a company name anywhere in the sender name ("Service PayPal", "PayPal-Support", "PayPal Inc."), names spelt with look-alike letters ("PayPaI" with a capital i, "Micr0soft"), addresses that imitate a company's ("paypa1.com"), and companies without a logo such as Microsoft, Amazon and DHL.
 - Sites on shared hosting (github.io, pages.dev and the like) are told apart, using the Public Suffix List bundled with the app.
 - The mail cleaner (ammonia) is updated to 4.2.5, which fixes a flaw in handling SVG and MathML. OpenWren does not allow those tags in mail, so it was not affected, but the update is taken anyway.
+- A `mailto:` link in a message opens OpenWren's own composer, filled with the recipient, copy, subject and text only. It used to go to the system mail program with all its parameters, and some programs attach local files when a link asks them to.
 
 ## 0.1.11
 

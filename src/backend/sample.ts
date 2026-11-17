@@ -104,7 +104,7 @@ const messages: MessageDetail[] = [
     to: "you; Cameron Evans",
     subject: "Event announcement content",
     body: ["Hi team,", "I hope you're all doing well. Here's the draft of the announcement for next week's event. Let me know if anything should change before Friday.", "Thanks,\nMona"],
-    html: '<p>Hi team,</p><p>I hope you\'re all doing well. Here\'s the <b>draft</b> of the announcement for next week\'s event. Details are on <a href="https://example.com/event">the event page</a>.</p><p><img src="https://example.com/banner.png" alt="Event banner" width="320" height="80"></p><p>Thanks,<br>Mona</p>',
+    html: '<p>Hi team,</p><p>I hope you\'re all doing well. Here\'s the <b>draft</b> of the announcement for next week\'s event. Details are on <a href="https://example.com/event">the event page</a>.</p><p>Questions? <a href="mailto:mona@example.com?subject=Event%20question&body=Hi%20Mona%2C&attach=~/.ssh/id_ed25519">Write to me</a>.</p><p><img src="https://example.com/banner.png" alt="Event banner" width="320" height="80"></p><p>Thanks,<br>Mona</p>',
     date: ago(0, 11, 11),
     files: [["announcement-draft.pdf", 217_000]],
   }),
