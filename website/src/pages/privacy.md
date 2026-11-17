@@ -20,11 +20,15 @@ OpenWren keeps your mail on your computer. This page lists every network request
 | Looking for a new version | A few times a day, unless you switch it off | `packages.openwren.app` |
 | Installing an update | Only when you click "Install and restart" (AppImage, Windows, macOS) | `packages.openwren.app` |
 
-There are no others. Looking for a new version downloads one small public file that names the newest version; the request carries nothing about you or your computer, not even the version you have. You can switch it off in Settings, under Privacy. An update the app installs itself must be signed with the OpenWren update key, or it is refused. Sender logos for well-known companies are bundled with the app and are not fetched online.
+There are no others. Sender logos for well-known companies are bundled with the app and are not fetched online.
+
+## Looking for a new version
+
+A few times a day the app checks whether a newer version exists. It is on by default. The check downloads one small public file that names the newest version; the request carries nothing about you or your computer, not even the version you have. You can switch it off in Settings, under Privacy. An update the app installs itself must be signed with the OpenWren update key, or it is refused.
 
 ## The anonymous usage request
 
-Once a day the app sends one small request so the project can count how many people use it. It is on by default. To switch it off, open Settings → Privacy.
+Once a day the app sends one small request so the project can count how many people use it; knowing that people rely on it is what motivates the maintainer to keep the code maintained in the long term. It is on by default. The welcome screen has a switch for it, and nothing is sent before that screen is finished. To switch it off later, open Settings → Privacy.
 
 The request carries:
 

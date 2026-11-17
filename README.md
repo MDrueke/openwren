@@ -262,7 +262,7 @@ Archive, delete and snooze are one click. Move by menu or by dragging onto a fol
 
 **Private, and you can check**
 
-Mail is stored in an encrypted database; passwords stay in the system keyring. Every protection has a switch, and Settings shows exactly what the one anonymous daily request contains.
+Mail is stored in an encrypted database; passwords stay in the system keyring. Every protection has a switch, and the two requests OpenWren makes for itself, the daily usage count and the check for a new version, can both be switched off.
 
 </td>
 </tr>
@@ -284,11 +284,20 @@ OpenWren has no server of its own that sees your mail. It talks to your mail
 servers, and to nobody else unless you ask (showing remote images, signing in
 with Google, unsubscribing).
 
-One thing is on by default: once a day the app sends an anonymous request so
-the project can count how many people use it. It carries the app version, the
-kind of package and system, and nothing that identifies you; the server keeps
-only totals. The welcome screen asks about it, and Settings → Privacy switches
-it off at any time. Details: [PRIVACY.md](PRIVACY.md).
+Two requests go to the project itself. Both are on by default, and both can be
+switched off in Settings → Privacy:
+
+- **Anonymous usage count.** Once a day the app sends one request so the
+  project can count how many people use it. It carries the app version, the
+  kind of package and system, and nothing that identifies you; the server keeps
+  only totals. The welcome screen asks about it, and nothing is sent before
+  that screen is finished.
+- **Looking for a new version.** A few times a day the app downloads one small
+  public file from `packages.openwren.app` that names the newest version. The
+  request carries nothing about you or your computer, not even the version you
+  have.
+
+Every request the app makes is listed in [PRIVACY.md](PRIVACY.md).
 
 ## Built with
 
