@@ -54,20 +54,39 @@ pub fn auth_server(conn: &Connection, account_id: i64) -> Result<Option<String>>
     get_setting(conn, &format!("auth_server_{account_id}"))
 }
 
-/// Work out which server does the sender checks for an account: the one named in
-/// at least half of its mail. A sender can write such a header too, but cannot
-/// write it into most of the mailbox. Returns true when the answer changed.
+/// Fewest messages with sender checks before a server is learned, and the share of
+/// them (in percent) that it must have written. A sender who can write the topmost
+/// Authentication-Results header (the provider adds none, or keeps forged ones) would
+/// otherwise choose the trusted server by sending a handful of messages.
+const LEARN_AT_LEAST: i64 = 50;
+const LEARN_SHARE_PERCENT: i64 = 80;
+
+/// The server that writes the sender checks for providers known to add them, so that
+/// for these accounts nothing is learned from the mailbox at all.
+pub fn known_auth_server(settings: &AccountSettings) -> Option<&'static str> {
+    settings.is_gmail().then_some("mx.google.com")
+}
+
+/// Decide whose sender checks to believe for an account: the provider's known server,
+/// or, for other providers, the server named in nearly all of its mail. Returns true
+/// when the choice changed.
 pub fn learn_auth_server(conn: &Connection, account_id: i64) -> Result<bool> {
-    let read: i64 = conn.query_row("SELECT count(*) FROM messages WHERE account_id = ?1 AND auth IS NOT NULL", [account_id], |r| r.get(0))?;
-    let top: Option<(String, i64)> = conn
-        .query_row(
-            "SELECT substr(auth, 4, instr(auth || ';', ';') - 4) AS server, count(*) AS n FROM messages
-              WHERE account_id = ?1 AND auth LIKE 'id=%' GROUP BY server ORDER BY n DESC LIMIT 1",
-            [account_id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
-        .optional()?;
-    let learned = top.filter(|(_, n)| *n >= 5 && *n * 2 >= read).map(|(server, _)| server);
+    let (_, settings) = account_settings(conn, account_id)?;
+    let learned = match known_auth_server(&settings) {
+        Some(server) => Some(server.to_string()),
+        None => {
+            let read: i64 = conn.query_row("SELECT count(*) FROM messages WHERE account_id = ?1 AND auth IS NOT NULL", [account_id], |r| r.get(0))?;
+            let top: Option<(String, i64)> = conn
+                .query_row(
+                    "SELECT substr(auth, 4, instr(auth || ';', ';') - 4) AS server, count(*) AS n FROM messages
+                      WHERE account_id = ?1 AND auth LIKE 'id=%' GROUP BY server ORDER BY n DESC LIMIT 1",
+                    [account_id],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()?;
+            top.filter(|(_, n)| *n >= LEARN_AT_LEAST && *n * 100 >= read * LEARN_SHARE_PERCENT).map(|(server, _)| server)
+        }
+    };
     if learned == auth_server(conn, account_id)? {
         return Ok(false);
     }
@@ -949,6 +968,41 @@ pub fn set_sender_focus(conn: &Connection, id: i64, focused: bool) -> Result<Str
 mod tests {
     use super::*;
     use crate::model::AccountSettings;
+
+    fn add_mail_checked_by(conn: &Connection, account: i64, server: &str, count: usize) {
+        for _ in 0..count {
+            conn.execute("INSERT INTO messages (account_id, date, auth) VALUES (?1, 0, ?2)", params![account, format!("id={server};dmarc=pass")]).unwrap();
+        }
+    }
+
+    #[test]
+    fn a_handful_of_forged_checks_does_not_choose_the_trusted_server() {
+        let conn = crate::store::open_in_memory().unwrap();
+        let account = insert_account(&conn, "ann@small.example", "Ann", "imap", &AccountSettings::default()).unwrap();
+        add_mail_checked_by(&conn, account, "mx.attacker.example", 10);
+        assert!(!learn_auth_server(&conn, account).unwrap());
+        assert_eq!(auth_server(&conn, account).unwrap(), None, "10 messages are far too few");
+
+        // The provider's own server, in nearly all of a larger mailbox, is learned.
+        add_mail_checked_by(&conn, account, "mx.small.example", 60);
+        assert!(learn_auth_server(&conn, account).unwrap());
+        assert_eq!(auth_server(&conn, account).unwrap().as_deref(), Some("mx.small.example"));
+
+        // A server named in only a part of the mail is not believed, even when it is the most common.
+        add_mail_checked_by(&conn, account, "mx.attacker.example", 20);
+        assert!(learn_auth_server(&conn, account).unwrap());
+        assert_eq!(auth_server(&conn, account).unwrap(), None, "60 of 90 is less than 80%");
+    }
+
+    #[test]
+    fn gmail_trusts_googles_server_without_learning() {
+        let conn = crate::store::open_in_memory().unwrap();
+        let settings: AccountSettings = serde_json::from_value(serde_json::json!({ "imap": { "host": "imap.gmail.com", "port": 993, "security": "tls", "username": "ann@gmail.com" } })).unwrap();
+        let account = insert_account(&conn, "ann@gmail.com", "Ann", "gmail", &settings).unwrap();
+        add_mail_checked_by(&conn, account, "mx.attacker.example", 100);
+        learn_auth_server(&conn, account).unwrap();
+        assert_eq!(auth_server(&conn, account).unwrap().as_deref(), Some("mx.google.com"));
+    }
 
     #[test]
     fn accounts_are_listed_in_the_order_the_user_chose() {

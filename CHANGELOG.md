@@ -9,6 +9,7 @@
 - Sites on shared hosting (github.io, pages.dev and the like) are told apart, using the Public Suffix List bundled with the app.
 - The mail cleaner (ammonia) is updated to 4.2.5, which fixes a flaw in handling SVG and MathML. OpenWren does not allow those tags in mail, so it was not affected, but the update is taken anyway.
 - A `mailto:` link in a message opens OpenWren's own composer, filled with the recipient, copy, subject and text only. It used to go to the system mail program with all its parameters, and some programs attach local files when a link asks them to.
+- Senders are harder to fake as "confirmed". For Gmail, only Google's own checks count. For other providers, the server whose checks are believed is learned only from at least 50 messages, and it must have checked at least 80% of them; it used to take 5 messages and half. Settings, Accounts shows which server it is.
 
 ## 0.1.11
 
