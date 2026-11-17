@@ -74,6 +74,20 @@ pub fn switched_on(conn: &Connection) -> bool {
     db::get_setting(conn, "usage_stats").ok().flatten().as_deref() == Some("on")
 }
 
+/// Installations set up before the count became a choice had it on unless switched off,
+/// and keep that: on their first start with this version, a setting never touched becomes
+/// "on". A new installation answers on the welcome screen instead. Runs once.
+pub fn keep_earlier_default(conn: &Connection) -> Result<()> {
+    if db::get_setting(conn, "usage_choice_kept")?.is_some() {
+        return Ok(());
+    }
+    let set_up = welcomed(conn) || !db::list_accounts(conn)?.is_empty();
+    if set_up && db::get_setting(conn, "usage_stats")?.is_none() {
+        db::set_setting(conn, "usage_stats", "on")?;
+    }
+    db::set_setting(conn, "usage_choice_kept", "yes")
+}
+
 /// The month of an install week stored by an older version ("2026-W46" → "2026-11"),
 /// or the value itself when it is already a month.
 fn as_month(stored: &str) -> Option<String> {
@@ -232,6 +246,27 @@ mod tests {
         db::set_setting(&conn, "usage_stats", "off").unwrap();
         assert!(!switched_on(&conn));
         assert!(!enabled(&conn));
+    }
+
+    #[test]
+    fn installations_from_before_the_choice_keep_their_setting() {
+        // Set up with the old switch left on: stays counted.
+        let old = crate::store::open_in_memory().unwrap();
+        db::set_setting(&old, "onboarded", "yes").unwrap();
+        keep_earlier_default(&old).unwrap();
+        assert!(switched_on(&old));
+        // Switched off before: stays off.
+        let off = crate::store::open_in_memory().unwrap();
+        db::insert_account(&off, "a@example.test", "A", "imap", &crate::model::AccountSettings::default()).unwrap();
+        db::set_setting(&off, "usage_stats", "off").unwrap();
+        keep_earlier_default(&off).unwrap();
+        assert!(!switched_on(&off));
+        // A new installation: nothing is set, and skipping the welcome screen later does not turn it on.
+        let new = crate::store::open_in_memory().unwrap();
+        keep_earlier_default(&new).unwrap();
+        db::set_setting(&new, "onboarded", "yes").unwrap();
+        keep_earlier_default(&new).unwrap();
+        assert!(!switched_on(&new));
     }
 
     #[test]
