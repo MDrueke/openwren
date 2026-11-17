@@ -175,7 +175,14 @@ export function foldSmall(counts: Map<string, number>, min = MIN_GROUP): NameCou
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
-/** Build the /api/daily answer from the counter rows of the period. Rows outside it are ignored. */
+/**
+ * Build the /api/daily answer from the counter rows of the period. Rows outside it are ignored.
+ *
+ * The breakdowns by version, package and system count installations, not requests: each
+ * one is counted once, with its first request of the current month (the `m` flag). So
+ * they add up to the monthly users, and a copy used every day weighs as much as one used
+ * once. The version is the one that copy had on its first day of the month.
+ */
 export function aggregate(rows: CounterRow[], today: string, days: number): Report {
   const byDay = new Map<string, DayCount>();
   for (const day of period(today, days)) {
@@ -185,12 +192,13 @@ export function aggregate(rows: CounterRow[], today: string, days: number): Repo
   const packages = new Map<string, number>();
   const systems = new Map<string, number>();
   const add = (map: Map<string, number>, name: string, n: number) => map.set(name, (map.get(name) ?? 0) + n);
+  const month = today.slice(0, 7);
 
   for (const row of rows) {
     const entry = byDay.get(row.day);
     if (!entry) continue;
-    if (row.d) {
-      entry.daily += row.n;
+    if (row.d) entry.daily += row.n;
+    if (row.m && row.day.startsWith(month)) {
       add(versions, row.v, row.n);
       add(packages, row.pkg, row.n);
       add(systems, row.os, row.n);

@@ -28,7 +28,7 @@ A few times a day the app checks whether a newer version exists. It is on by def
 
 ## The anonymous usage request
 
-Once a day the app sends one small request so the project can count how many people use it; knowing that people rely on it is what motivates the maintainer to keep the code maintained in the long term. It is sent only if you choose to: the welcome screen asks, with neither answer picked in advance. Until you say yes, nothing is sent. To change your answer later, open Settings → Privacy.
+Once a day the app sends one small request so the project can count how many people use it; knowing that people rely on it is what motivates the maintainer to keep the code maintained in the long term. It is sent only if you choose to: the welcome screen asks, with neither answer picked in advance. Until you say yes, nothing is sent. An installation set up before version 0.1.12 keeps the setting it had then: on, unless it was switched off. To change your answer later, open Settings → Privacy.
 
 The request carries:
 

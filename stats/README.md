@@ -92,8 +92,10 @@ Weeks and months are judged by the app from its own clock in UTC, while `day`
 is the server's UTC date, so a request sent around midnight can land on the
 neighbouring day. Totals are not affected.
 
-`byVersion`, `byPackage` and `bySystem` count `d` requests over the whole
-period (so they are user-days, not distinct people), largest first. Any group
+`byVersion`, `byPackage` and `bySystem` count installations in the current
+month: each one once, with its first request of the month (`m`), whatever the
+`days` period. They add up to the month's users, and the version is the one
+each copy had on its first day of the month. Largest first. Any group
 with fewer than 5 is added into a single `other` entry, together with what was
 already stored as `other`, so small groups cannot be singled out. The `other`
 entry is sorted by its count like any other.
