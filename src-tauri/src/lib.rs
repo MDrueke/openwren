@@ -1238,11 +1238,19 @@ async fn save_message(app: AppHandle, state: State<'_, AppState>, id: i64, name:
 #[tauri::command]
 fn open_link(app: AppHandle, url: String) -> Result<()> {
     use tauri_plugin_opener::OpenerExt;
+    let parsed = web_link(&url)?;
+    app.opener().open_url(parsed.as_str(), None::<&str>).map_err(|e| Error(format!("Could not open the browser: {e}")))
+}
+
+/// Only web addresses go to the browser. A `mailto:` link opens OpenWren's own composer
+/// instead (the interface does that), because some system mail programs act on link
+/// parameters such as `attach=` and would attach local files the sender named.
+fn web_link(url: &str) -> Result<reqwest::Url> {
     let parsed = reqwest::Url::parse(url.trim()).map_err(|_| Error("That link is not a valid address.".into()))?;
-    if !matches!(parsed.scheme(), "http" | "https" | "mailto") {
+    if !matches!(parsed.scheme(), "http" | "https") {
         return Err(Error(format!("OpenWren does not open \"{}\" links.", parsed.scheme())));
     }
-    app.opener().open_url(parsed.as_str(), None::<&str>).map_err(|e| Error(format!("Could not open the browser: {e}")))
+    Ok(parsed)
 }
 
 /// The complete message as it arrived, headers included, for technical inspection.
@@ -1418,8 +1426,18 @@ async fn open_attachment(app: AppHandle, state: State<'_, AppState>, id: i64, in
 
 #[cfg(test)]
 mod tests {
-    use super::{is_public, parse_desktop_font, unsubscribe_mail, OPENABLE};
+    use super::{is_public, parse_desktop_font, unsubscribe_mail, web_link, OPENABLE};
     use crate::model::{AccountSettings, Security, ServerSettings};
+
+    #[test]
+    fn only_web_links_go_to_the_browser() {
+        assert!(web_link("https://example.com/a?b=c").is_ok());
+        assert!(web_link(" http://example.com ").is_ok());
+        assert!(web_link("mailto:attacker@evil.example?attach=~/.ssh/id_ed25519").is_err());
+        assert!(web_link("file:///etc/passwd").is_err());
+        assert!(web_link("javascript:alert(1)").is_err());
+        assert!(web_link("not a link").is_err());
+    }
 
     #[test]
     fn unsubscribe_mail_cannot_be_turned_into_a_message_of_the_senders_choosing() {

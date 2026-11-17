@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- A `mailto:` link in a message opens OpenWren's own composer, filled with the recipient, copy, subject and text only. It used to go to the system mail program with all its parameters, and some programs attach local files when a link asks them to.
+
 ## 0.1.11
 
 - Accounts can be put in any order in Settings, Accounts: drag one by its dots, or use the arrow keys. The folder list follows.
