@@ -6,6 +6,8 @@
 allow = [
   "MIT",
   "MIT-0",
+  # Zero-clause BSD: no conditions at all (quoted_printable, used by lettre).
+  "0BSD",
   "Apache-2.0",
   "Apache-2.0 WITH LLVM-exception",
   "BSD-2-Clause",
@@ -23,3 +25,12 @@ confidence-threshold = 0.9
 
 [advisories]
 yanked = "warn"
+# "Unmaintained" is reported for our own dependencies only. Crates deeper in the tree
+# (zvariant through keyring, proc-macro-error through GTK, pin-utils through async-imap)
+# can only be replaced by the crates that use them; they are watched there.
+unmaintained = "workspace"
+# Each entry says why it does not apply or cannot be fixed yet, and when to look again.
+ignore = [
+  { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained, with no security issue. async-imap depends on it, so it stays in the build even if OpenWren's own date code moved to jiff or time. Revisit when async-imap drops it." },
+  { id = "RUSTSEC-2026-0459", reason = "SQLite before 3.54 can return stale memory when it opens a database and -wal file crafted by someone else. OpenWren opens only its own database in the user's data folder, so the attacker would already need to write the user's files. The fixed libsqlite3-sys 0.39 still builds SQLCipher from sqlcipher-src 419.0.6, which bundles SQLite 3.53.4 (per the advisory). Revisit when a SQLCipher build with SQLite 3.54 is available." },
+]
