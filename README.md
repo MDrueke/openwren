@@ -4,7 +4,7 @@
 
 # OpenWren
 
-A modern, privacy-first mail app that keeps your mail on your computer. Free
+A modern, fast, privacy-first mail app that keeps your mail on your computer. Free
 and open source, for [Linux, Windows and macOS](https://openwren.app/download/).
 It is built with **Rust** (the engine: sync, search, encryption) and **React**
 (the interface), which makes it small and fast: a 14 MB download that starts in
