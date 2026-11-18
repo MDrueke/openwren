@@ -1,25 +1,21 @@
 # Changelog
 
-## Unreleased
+## 0.1.12
 
-- The welcome screen asks about the anonymous usage count in the maintainer's own words, with a "See what is sent" link that lists everything the request contains. A hint next to Continue says an answer is needed.
-- The last welcome page and a new Sponsor page in Settings say how to sponsor OpenWren on GitHub.
-- The anonymous usage count is now a choice you make: the welcome screen asks with neither answer picked, and nothing is sent until you say yes. If you already use OpenWren, your setting stays as it was.
-- The usage count sends less: the major system version ("ubuntu-24") and the month of installation, instead of the full version and the week.
-- PRIVACY.md no longer says that two requests can never be linked: on an uncommon system the facts in them may be shared by only a few installations.
+- A `mailto:` link in a message opens OpenWren's own composer, filled with the recipient, copy, subject and text only. It used to go to the system mail program with all its parameters, and some programs attach local files when a link asks them to.
 - The phishing warnings catch more tricks: a company name anywhere in the sender name ("Service PayPal", "PayPal-Support", "PayPal Inc."), names spelt with look-alike letters ("PayPaI" with a capital i, "Micr0soft"), addresses that imitate a company's ("paypa1.com"), and companies without a logo such as Microsoft, Amazon and DHL.
 - Sites on shared hosting (github.io, pages.dev and the like) are told apart, using the Public Suffix List bundled with the app.
-- The mail cleaner (ammonia) is updated to 4.2.5, which fixes a flaw in handling SVG and MathML. OpenWren does not allow those tags in mail, so it was not affected, but the update is taken anyway.
-- A `mailto:` link in a message opens OpenWren's own composer, filled with the recipient, copy, subject and text only. It used to go to the system mail program with all its parameters, and some programs attach local files when a link asks them to.
-- Senders are harder to fake as "confirmed". For Gmail, only Google's own checks count. For other providers, the server whose checks are believed is learned only from at least 50 messages, and it must have checked at least 80% of them; it used to take 5 messages and half. Settings, Accounts shows which server it is.
-- An attachment you open is written readable by you only from the first moment; its folder used to be readable by others for an instant.
+- Senders are harder to fake as "confirmed". For Gmail, only Google's own checks count. For other providers, the server whose checks are believed is learned only from at least 50 messages, and it must have checked at least 80% of them; it used to take 5 messages and half. Settings, Accounts shows which server it is. Until an account has enough checked mail, its senders show as not confirmed and without company logos.
 - Old Office files (`.doc`, `.xls`, `.ppt`) and `.rtf` files no longer open straight from mail, since they can carry macros or exploits. Save them first if you trust the sender.
-- Links in image maps are removed from mail, so every link goes through the link checks.
-- A message can no longer position text over the reading pane, such as a fake "verified" mark.
+- A message can no longer position text over the reading pane, such as a fake "verified" mark, and links in image maps are removed, so every link goes through the link checks.
+- An attachment you open is written readable by you only from the first moment; its folder used to be readable by others for an instant.
 - "None (not secure)" now works only for a mail server on this computer, as the setting always said.
-- Unsubscribe requests also refuse a few more special address ranges.
 - Removing a Google account asks Google to cancel its access; before, the sign-in stayed valid at Google.
-- Files chosen for attaching are forgotten after a week unless a draft still attaches them.
+- Files chosen for attaching are forgotten after a week unless a draft still attaches them, and unsubscribe requests refuse a few more special address ranges.
+- The anonymous usage count is now a choice you make. The welcome screen asks in the maintainer's own words, with neither answer picked and a "See what is sent" link that lists everything the request contains; nothing is sent until you say yes. If you already use OpenWren, your setting stays as it was.
+- The usage count sends less: the major system version ("ubuntu-24") and the month of installation, instead of the full version and the week. PRIVACY.md no longer says that two requests can never be linked: on an uncommon system the facts in them may be shared by only a few installations.
+- The last welcome page and a new Sponsor page in Settings say how to sponsor OpenWren on GitHub.
+- The mail cleaner (ammonia) is updated to 4.2.5, which fixes a flaw in handling SVG and MathML. OpenWren does not allow those tags in mail, so it was not affected.
 - If you used version 0.1.0, which stored mail unencrypted: later versions encrypted the database, but the disk space of the old unencrypted file is only overwritten over time.
 
 ## 0.1.11
