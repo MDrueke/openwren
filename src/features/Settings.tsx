@@ -1,4 +1,4 @@
-import { IconBell, IconCloudDownload, IconFilter, IconInfoCircle, IconPalette, IconShieldLock, IconSignature, IconTrash, IconUserCircle, IconX } from "@tabler/icons-react";
+import { IconBell, IconCloudDownload, IconFilter, IconHeart, IconInfoCircle, IconPalette, IconShieldLock, IconSignature, IconTrash, IconUserCircle, IconX } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import logo from "../../src-tauri/icons/128x128.png";
 import { backend, errorText } from "../backend";
@@ -6,7 +6,7 @@ import type { AppInfo } from "../backend";
 import { RichText } from "../components/RichText";
 import { Button, Chip, IconButton, categories, fieldBox, fieldCaption } from "../components/ui";
 import { TEXT_SIZES, fontChoice } from "../lib/font";
-import { REPOSITORY, WEBSITE } from "../lib/links";
+import { REPOSITORY, SPONSOR_PAGE, WEBSITE } from "../lib/links";
 import { pictureFromFile, signatureHtml } from "../lib/signature";
 import { useStore } from "../store";
 import type { SettingsPage } from "../store";
@@ -23,6 +23,7 @@ const pages: [SettingsPage, string, typeof IconBell][] = [
   ["rules", "Rules", IconFilter],
   ["notifications", "Notifications", IconBell],
   ["about", "About", IconInfoCircle],
+  ["sponsor", "Sponsor", IconHeart],
 ];
 
 function Problem({ text }: { text: string }) {
@@ -910,6 +911,33 @@ function About() {
   );
 }
 
+/** Why the project asks for sponsors, and the way to become one. */
+function Sponsor() {
+  return (
+    <div className="flex items-start gap-3.5">
+      <div className="flex size-10 flex-none items-center justify-center rounded-full bg-danger/10 text-danger">
+        <IconHeart size={20} />
+      </div>
+      <div className="min-w-0">
+        <div className="font-semibold">OpenWren is free. Sponsors keep it that way.</div>
+        <p className="mt-1 text-[13px] text-ink2">
+          No ads and no data to sell. If OpenWren is your daily mail app, a few dollars a month pays for the time to fix bugs, answer security reports and keep up with mail providers, and for signed installers on Windows and macOS.
+        </p>
+        <Button className="mt-3" onClick={() => void backend.openLink(SPONSOR_PAGE)}>
+          <IconHeart size={16} className="text-danger" /> Sponsor on GitHub
+        </Button>
+        <p className="mt-4 text-[13px] text-ink2">
+          Not able to sponsor? A star on{" "}
+          <button type="button" className="text-brand underline" onClick={() => void backend.openLink(REPOSITORY)}>
+            GitHub
+          </button>{" "}
+          helps others find OpenWren, and costs nothing.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 const content: Record<SettingsPage, () => React.ReactNode> = {
   accounts: Accounts,
   signatures: Signatures,
@@ -919,6 +947,7 @@ const content: Record<SettingsPage, () => React.ReactNode> = {
   rules: Rules,
   notifications: Notifications,
   about: About,
+  sponsor: Sponsor,
 };
 
 export function Settings() {
@@ -945,8 +974,8 @@ export function Settings() {
               onClick={() => setDialog("settings", id)}
               className={`flex w-full items-center gap-2 rounded-full px-3 py-1.5 text-left ${page === id ? "bg-sel" : "hover:bg-hover"}`}
             >
-              <Icon size={18} className="text-ink2" />
-              {name}
+              <Icon size={18} className={id === "sponsor" ? "text-danger" : "text-ink2"} />
+              <span className={id === "sponsor" ? "text-danger" : undefined}>{name}</span>
             </button>
           ))}
         </nav>
