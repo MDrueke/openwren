@@ -32,7 +32,7 @@ it keeps OpenWren free and maintained.
 
 ## Why OpenWren
 
-- **Free.** No price, no account with us, no ads, no upsell.
+- **Free.** No price, no account with us, no ads.
 - **Open source.** Apache-2.0. Every line is public: read it, build it, fork it.
 - **Built because I could not find a mail app for Linux that I liked.** I wanted
   something modern, fast and private, so I wrote it.
