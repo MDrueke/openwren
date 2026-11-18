@@ -921,7 +921,7 @@ function Sponsor() {
       <div className="min-w-0">
         <div className="font-semibold">OpenWren is free. Sponsors keep it that way.</div>
         <p className="mt-1 text-[13px] text-ink2">
-          No ads, no paid version, no data to sell. If OpenWren is your daily mail app, a few dollars a month pays for the time to fix bugs, answer security reports and keep up with mail providers, and for signed installers on Windows and macOS.
+          No ads and no data to sell. If OpenWren is your daily mail app, a few dollars a month pays for the time to fix bugs, answer security reports and keep up with mail providers, and for signed installers on Windows and macOS.
         </p>
         <Button className="mt-3" onClick={() => void backend.openLink(SPONSOR_PAGE)}>
           <IconHeart size={16} className="text-danger" /> Sponsor on GitHub
