@@ -6,3 +6,6 @@ export const PRIVACY_PAGE = "https://openwren.app/privacy";
 
 /** The project's website. */
 export const WEBSITE = "https://openwren.app";
+
+/** Where the project can be sponsored. */
+export const SPONSOR_PAGE = "https://github.com/sponsors/VinceGHER";
