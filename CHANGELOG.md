@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The welcome screen asks about the anonymous usage count in the maintainer's own words, with a "See what is sent" link that lists everything the request contains. A hint next to Continue says an answer is needed.
+- The last welcome page and a new Sponsor page in Settings say how to sponsor OpenWren on GitHub.
 - The anonymous usage count is now a choice you make: the welcome screen asks with neither answer picked, and nothing is sent until you say yes. If you already use OpenWren, your setting stays as it was.
 - The usage count sends less: the major system version ("ubuntu-24") and the month of installation, instead of the full version and the week.
 - PRIVACY.md no longer says that two requests can never be linked: on an uncommon system the facts in them may be shared by only a few installations.
