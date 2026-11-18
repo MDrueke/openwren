@@ -324,7 +324,7 @@ export function Onboarding() {
                   <div className="min-w-0">
                     <div className="text-ink">OpenWren is free. Sponsors keep it that way.</div>
                     <div className="mt-1 text-[13px] text-ink2">
-                      No ads, no paid version, no data to sell. If OpenWren becomes your daily mail app, a few dollars a month pays for the time to fix bugs and for signed installers.
+                      No ads and no data to sell. If OpenWren becomes your daily mail app, a few dollars a month pays for the time to fix bugs and for signed installers.
                     </div>
                     <button
                       type="button"
