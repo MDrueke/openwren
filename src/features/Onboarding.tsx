@@ -275,7 +275,7 @@ export function Onboarding() {
                     <div id="usage-sent" className="mt-3 rounded-xl bg-canvas px-3.5 py-3">
                       <div className="text-xs text-ink3">Everything the request contains</div>
                       <div className="mt-2 flex flex-wrap gap-1.5">
-                        {["The app version", "The package type, such as deb", "The system, such as ubuntu-24", "The processor type", "The month of installation", "If it is the first request of the day, week or month"].map((fact) => (
+                        {["The app version", "The package type, such as deb", "The system, such as ubuntu-24", "The processor type", "The month of installation", "If it is the first request of the day, week or month, or ever"].map((fact) => (
                           <span key={fact} className="rounded-full border border-edge bg-card px-2.5 py-0.5 text-xs text-ink2">
                             {fact}
                           </span>
