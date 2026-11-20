@@ -1,0 +1,75 @@
+---
+import Base from '../layouts/Base.astro';
+import Screenshot from '../components/Screenshot.astro';
+import OsIcon from '../components/OsIcon.astro';
+import Command from '../components/Command.astro';
+import Limits from '../components/Limits.astro';
+import { RELEASE, REPO_URL } from '../site';
+---
+
+<Base
+  fullTitle="A private, open-source email client for Mac · OpenWren"
+  description="OpenWren is a free, open-source email client for Mac. Gmail and IMAP in one inbox, mail encrypted on your Mac, and search across all accounts in milliseconds."
+>
+  <section class="page-intro">
+    <h1>A private, open-source email client for Mac</h1>
+    <p class="lead">
+      OpenWren is a free email client for macOS. All your accounts share one inbox and one search box, your mail is
+      kept on your Mac in an encrypted database, and trackers are removed before you read a message. There is no
+      subscription and no account to create.
+    </p>
+    <div class="actions">
+      <a class="button" href={RELEASE.mac}><OsIcon os="macos" /> Download {RELEASE.version} for macOS</a>
+      <a class="button secondary" href="/download/#macos">Install steps</a>
+    </div>
+    <p class="muted">{RELEASE.macNote}</p>
+  </section>
+
+  <section class="page-body">
+    <Screenshot src="inbox-dark.png" alt="The OpenWren inbox in dark mode: folders, the message list and an open message" label="Inbox, dark" width={760} />
+
+    <h2>Who it is for</h2>
+    <p>
+      Apple Mail is fine until you have several accounts and years of mail and need to find one message. Most of the
+      well-known alternatives on the Mac ask for a subscription, send your mail through their own servers to offer
+      extras, or both. OpenWren is for people who want a plain, quick mail program that does neither.
+    </p>
+    <ul>
+      <li><strong>Search across every account.</strong> One search box, results grouped by year, about 30 ms on 200,000 messages. It does not depend on Spotlight. <a href="/search/">How search works</a>.</li>
+      <li><strong>Nothing in between.</strong> OpenWren talks to your mail servers and to nobody else. There is no OpenWren server that sees your mail. The <a href="/privacy/">privacy page</a> lists every request.</li>
+      <li><strong>Encrypted on disk.</strong> Mail and the search index are in one encrypted database. Its key and your passwords are in the macOS Keychain.</li>
+      <li><strong>Trackers removed, images blocked</strong> until you ask for them, and warnings on mail that looks forged.</li>
+      <li><strong>Open source.</strong> Every line is in the <a href={REPO_URL}>repository</a> under the Apache 2.0 licence.</li>
+    </ul>
+
+    <h2>Installing on macOS</h2>
+    <p class="note">
+      OpenWren is not signed with an Apple certificate yet, so macOS blocks the first start until you do one extra
+      step. It has been tested on macOS 14 with an Intel processor, and not yet tried on Apple silicon.
+    </p>
+    <ol>
+      <li>Open the downloaded file and drag OpenWren into Applications.</li>
+      <li>Open OpenWren. macOS refuses the first time, saying it cannot check the app or that it "is damaged". Click OK.</li>
+      <li>Open Terminal, run this once, and open OpenWren again:</li>
+    </ol>
+    <Command code="xattr -cr /Applications/OpenWren.app" />
+    <p>
+      The command removes the mark macOS puts on downloaded files. The checksum of the download is in
+      <a href={RELEASE.checksums}>SHA256SUMS</a> if you want to compare it first.
+    </p>
+
+    <h2>What it does not do</h2>
+    <Limits />
+
+    <h2>Questions</h2>
+    <h3>Does it work with iCloud Mail?</h3>
+    <p>
+      iCloud Mail offers IMAP with an app-specific password from your Apple account, which is the kind of account
+      OpenWren supports. Enter the server names by hand if they are not guessed from your address.
+    </p>
+    <h3>Does it work with Gmail?</h3>
+    <p>Yes, with an <a href="/docs/#gmail-with-an-app-password">app password</a>. Gmail labels are shown as folders.</p>
+    <h3>Is there an iPhone app?</h3>
+    <p>No. OpenWren is a desktop program for macOS, Windows and Linux.</p>
+  </section>
+</Base>

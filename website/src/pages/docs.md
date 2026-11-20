@@ -1,7 +1,8 @@
 ---
 layout: ../layouts/Base.astro
 title: Docs
-description: Adding an account, Gmail with an app password, keyboard shortcuts and search operators.
+fullTitle: "OpenWren docs: Gmail app password, IMAP, search operators"
+description: How to use the OpenWren email client. Adding a Gmail or IMAP account, Proton Mail Bridge, keyboard shortcuts and search operators.
 ---
 
 # Docs
@@ -10,6 +11,7 @@ Adding an account, keyboard shortcuts and search.
 
 - [Adding an account](#adding-an-account)
 - [Gmail with an app password](#gmail-with-an-app-password)
+- [Proton Mail with Proton Mail Bridge](#proton-mail-with-proton-mail-bridge)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Search](#search)
 - [Privacy features](#privacy-features)
@@ -52,6 +54,19 @@ While the Google project is in "Testing" status, Google expires the sign-in afte
 
 Gmail labels are shown as folders. "All Mail", "Starred" and "Important" are left out to avoid duplicates, and a message with several labels appears once per label.
 
+## Proton Mail with Proton Mail Bridge
+
+Proton Mail works through [Proton Mail Bridge](https://proton.me/mail/bridge), a program from Proton that runs on your computer. Choose the IMAP account type and enter the values Bridge shows, with security set to "None":
+
+| | Server | Port | Security |
+|---|---|---|---|
+| Incoming | `127.0.0.1` | `1143` | None |
+| Outgoing | `127.0.0.1` | `1025` | None |
+
+The password is the one Bridge shows for the account, not your Proton password. The ports are Bridge's defaults; use the ones it shows if you changed them.
+
+"None" is safe here because the connection never leaves your computer, and OpenWren allows it only for a server on this computer. Choosing an encrypted connection to Bridge fails with a certificate error, because Bridge makes its own certificate.
+
 ## Keyboard shortcuts
 
 | Action | Keys |
@@ -74,7 +89,7 @@ Gmail labels are shown as folders. "All Mail", "Starred" and "Important" are lef
 
 ## Search
 
-Search covers the whole mailbox, including mail that is many years old. Filters narrow the results by account, attachments, or date: the past year, older than one or two years, or a range you choose.
+Search covers the whole mailbox, in all accounts at once, including mail that is many years old. The [search page](/search/) explains how it works. Filters narrow the results by account, attachments, or date: the past year, older than one or two years, or a range you choose.
 
 "Search the server for more" also looks through mail text that has not been downloaded yet.
 

@@ -197,6 +197,31 @@ main {
   color: var(--text-2);
 }
 
+.site-footer .footer-links {
+  justify-content: flex-start;
+  gap: 20px 56px;
+  padding-bottom: 4px;
+}
+
+.footer-links nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.footer-links strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.footer-links a {
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  text-decoration: underline;
+}
+
 /* Buttons */
 
 .button {
@@ -338,4 +363,37 @@ th {
 .prose table {
   display: block;
   overflow-x: auto;
+}
+
+/* Landing pages: a short introduction, then sections of text. */
+
+.page-intro {
+  max-width: 760px;
+}
+
+.page-body {
+  max-width: 760px;
+}
+
+.page-body .shot {
+  margin-top: 1.25rem;
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 20px 32px;
+  margin: 1.25rem 0 0;
+}
+
+.figures dt {
+  font-size: 1.9rem;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.figures dd {
+  margin: 2px 0 0;
+  color: var(--text-2);
 }

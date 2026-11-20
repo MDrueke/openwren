@@ -2,4 +2,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://openwren.app/sitemap.xml
+Sitemap: https://openwren.app/sitemap-index.xml

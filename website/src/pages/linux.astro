@@ -1,0 +1,91 @@
+---
+import Base from '../layouts/Base.astro';
+import Screenshot from '../components/Screenshot.astro';
+import Command from '../components/Command.astro';
+import Limits from '../components/Limits.astro';
+import { RELEASE, REPO_URL } from '../site';
+---
+
+<Base
+  fullTitle="A modern, private email client for Linux · OpenWren"
+  description="OpenWren is a modern, open-source email client for Linux: apt and dnf repositories and an AppImage, mail encrypted on your computer, search in milliseconds."
+>
+  <section class="page-intro">
+    <h1>A modern, private email client for Linux</h1>
+    <p class="lead">
+      OpenWren is a free, open-source email client that started on Linux. It looks like a program from this decade,
+      installs from an apt or dnf repository, keeps your mail in an encrypted database on your machine, and searches
+      200,000 messages in about 30 ms.
+    </p>
+    <div class="actions">
+      <a class="button" href="/download/#linux">Install on Linux</a>
+      <a class="button secondary" href={REPO_URL}>Source code</a>
+    </div>
+  </section>
+
+  <section class="page-body">
+    <Screenshot src="inbox.png" alt="The OpenWren inbox on Linux: folders, the message list and an open message" label="Inbox" width={760} />
+
+    <h2>Why another Linux email client</h2>
+    <p>
+      I wanted a good, modern mail program on Linux and could not find one I was happy to use every day. The
+      established ones do a great deal but show their age, and the newer ones are often not open source or want an
+      account of their own. So I built the one I was missing, and I am sharing it.
+    </p>
+
+    <h2>Install</h2>
+    <h3>Debian, Ubuntu and derivatives</h3>
+    <Command code="curl -fsSL https://packages.openwren.app/key.gpg | sudo tee /usr/share/keyrings/openwren.gpg > /dev/null" />
+    <Command code={'echo "deb [signed-by=/usr/share/keyrings/openwren.gpg] https://packages.openwren.app/apt stable main" | sudo tee /etc/apt/sources.list.d/openwren.list'} />
+    <Command code="sudo apt update && sudo apt install openwren" />
+    <h3>Fedora</h3>
+    <Command code="sudo dnf config-manager addrepo --from-repofile=https://packages.openwren.app/rpm/openwren.repo" />
+    <Command code="sudo dnf install openwren" />
+    <h3>Any other distribution</h3>
+    <p>
+      Download the <a href={RELEASE.appImage}>AppImage</a>, make it executable and run it. The
+      <a href="/download/#linux">download page</a> has the signing key's fingerprint and the steps to uninstall.
+    </p>
+    <p>
+      The repositories are signed, and updates arrive with your normal system updates. Passwords and the database key
+      are kept in the system keyring (GNOME Keyring, KWallet or another Secret Service provider).
+    </p>
+
+    <h2>What you get</h2>
+    <ul>
+      <li><strong>One inbox and one search box</strong> for Gmail and any IMAP account. <a href="/search/">How search works</a>.</li>
+      <li><strong>Encrypted storage.</strong> Mail and its search index are in one SQLCipher database.</li>
+      <li><strong>Trackers removed</strong>, remote images blocked until you ask, and warnings on mail that fails its sender checks.</li>
+      <li><strong>Small and quick.</strong> A Rust engine and the system's WebKitGTK instead of a bundled browser: a 14 MB download that starts in about 0.6 s. <a href="/benchmarks/">Benchmarks</a>.</li>
+      <li><strong>Proton Mail</strong> works through <a href="/docs/#proton-mail-with-proton-mail-bridge">Proton Mail Bridge</a>.</li>
+    </ul>
+
+    <h2>OpenWren next to other Linux email clients</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th></th><th>OpenWren</th><th>Thunderbird</th><th>Evolution</th><th>Geary</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Open source</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td>Mail encrypted on disk by the app</td><td>Yes</td><td>No</td><td>No</td><td>No</td></tr>
+          <tr><td>Exchange / Microsoft 365</td><td>No</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+          <tr><td>Calendar and contacts</td><td>No</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+          <tr><td>PGP</td><td>No</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">
+      To the best of my knowledge in November 2026. If a cell is wrong or out of date, please
+      <a href={`${REPO_URL}/issues`}>say so</a>.
+    </p>
+    <p>
+      In short: if you need a calendar, Exchange or PGP, use Thunderbird or Evolution. If you want mail only, with a
+      modern interface, encrypted storage and a search you can rely on, try OpenWren. More in
+      <a href="/thunderbird-alternative/">OpenWren as a Thunderbird alternative</a>.
+    </p>
+
+    <h2>What it does not do</h2>
+    <Limits />
+  </section>
+</Base>

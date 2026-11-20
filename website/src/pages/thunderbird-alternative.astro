@@ -1,0 +1,92 @@
+---
+import Base from '../layouts/Base.astro';
+import Screenshot from '../components/Screenshot.astro';
+import Limits from '../components/Limits.astro';
+import { REPO_URL } from '../site';
+---
+
+<Base
+  fullTitle="Open-source Thunderbird alternative with fast search · OpenWren"
+  description="OpenWren is a free, open-source Thunderbird alternative for Windows, Mac and Linux: a modern interface, mail encrypted on disk, and one fast search box."
+>
+  <section class="page-intro">
+    <h1>An open-source Thunderbird alternative</h1>
+    <p class="lead">
+      Thunderbird is the reason a free, open-source desktop mail program still exists, and for many people it is the
+      right one. OpenWren is for those who want less: mail only, a modern interface, storage that is encrypted, and one
+      search box that is quick and covers everything.
+    </p>
+    <div class="actions">
+      <a class="button" href="/download/">Download OpenWren</a>
+      <a class="button secondary" href="/search/">How search works</a>
+    </div>
+  </section>
+
+  <section class="page-body">
+    <Screenshot src="inbox.png" alt="The OpenWren inbox: folders, the message list and an open message" label="Inbox" width={760} />
+
+    <h2>Where the two differ</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th></th><th>OpenWren</th><th>Thunderbird</th></tr></thead>
+        <tbody>
+          <tr><td>Open source, free</td><td>Yes (Apache 2.0)</td><td>Yes (MPL 2.0)</td></tr>
+          <tr><td>Windows, Mac, Linux</td><td>Yes</td><td>Yes, and Android</td></tr>
+          <tr><td>Gmail and IMAP</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td>POP3, Exchange, Microsoft 365</td><td>No</td><td>Yes</td></tr>
+          <tr><td>Search</td><td>One box: all accounts, sender, subject and text, with operators</td><td>Quick filter for the current folder, plus a separate global search</td></tr>
+          <tr><td>Mail on disk</td><td>Encrypted database</td><td>Ordinary files in your profile</td></tr>
+          <tr><td>Tracking pixels</td><td>Removed; remote images blocked</td><td>Remote images blocked</td></tr>
+          <tr><td>Tracking codes in links</td><td>Removed</td><td>Kept</td></tr>
+          <tr><td>Calendar, contacts, tasks, feeds, chat</td><td>No</td><td>Yes</td></tr>
+          <tr><td>Add-ons and themes</td><td>No</td><td>Yes</td></tr>
+          <tr><td>OpenPGP and S/MIME</td><td>No</td><td>Yes</td></tr>
+          <tr><td>Age and backing</td><td>New in 2026, one maintainer</td><td>More than twenty years, a funded team</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">
+      To the best of my knowledge in November 2026. If a cell is wrong or out of date, please
+      <a href={`${REPO_URL}/issues`}>say so</a>.
+    </p>
+
+    <h2>Search</h2>
+    <p>
+      If one thing sends Thunderbird users looking elsewhere, it is search: the quick filter looks only in the folder
+      you are in, the global search opens a different view with its own rules, and on a large profile it can take
+      seconds.
+    </p>
+    <p>
+      OpenWren has one search box, opened with <kbd>Ctrl</kbd>+<kbd>K</kbd>. It looks through the sender, recipients,
+      subject and text of all mail in all accounts, shows the results newest first and grouped by year, and can be
+      narrowed with buttons or with operators such as <code>from:</code> and <code>before:2024-01-31</code>. On an
+      encrypted mailbox of 200,000 messages a typical search takes about 30 ms, and the slowest case, a word found in
+      most of the mailbox, about 190 ms. The <a href="/benchmarks/">benchmarks</a> give the method; no other program
+      was measured, so there are no comparison numbers here.
+    </p>
+    <p>It has limits too: results are by date and not by relevance, and it does not correct typing mistakes. The <a href="/search/">search page</a> lists them.</p>
+
+    <h2>Stay with Thunderbird if</h2>
+    <ul>
+      <li>you need a calendar, an address book, feeds or chat in the same program;</li>
+      <li>you use Exchange, Microsoft 365 or POP3;</li>
+      <li>you send or receive PGP or S/MIME encrypted mail;</li>
+      <li>you depend on add-ons, or on message filters you built over the years.</li>
+    </ul>
+
+    <h2>Try OpenWren if</h2>
+    <ul>
+      <li>your accounts are Gmail or IMAP and you want mail only;</li>
+      <li>search is what you use most and you want it quick and in one place;</li>
+      <li>you want your mail and its search index encrypted on disk without setting up disk encryption yourself;</li>
+      <li>you want a small program: a 14 MB download that starts in about 0.6 s.</li>
+    </ul>
+    <p>
+      You can run both on the same IMAP account while you decide. Nothing needs exporting: OpenWren downloads your
+      folders and mail from the server.
+    </p>
+
+    <h2>What OpenWren does not do</h2>
+    <Limits />
+  </section>
+</Base>

@@ -23,8 +23,17 @@ Needs Node.js 22 or later and pnpm. From the project root:
 | `/security/` | `src/pages/security.md` |
 | `/docs/` | `src/pages/docs.md` |
 | `/stats/` | `src/pages/stats.astro` |
+| `/search/` | `src/pages/search.astro` |
+| `/benchmarks/` | `src/pages/benchmarks.md` (a copy of `docs/benchmarks.md`; update both) |
+| `/windows/`, `/mac/`, `/linux/` | `src/pages/windows.astro`, `mac.astro`, `linux.astro` |
+| `/compare/` | `src/pages/compare.astro` |
+| `/outlook-alternative/`, `/thunderbird-alternative/` | `src/pages/outlook-alternative.astro`, `thunderbird-alternative.astro` |
+| `/outlook-search-not-working/` | `src/pages/outlook-search-not-working.astro` |
+| not found | `src/pages/404.astro` |
 
-The layout, header and footer are in `src/layouts/Base.astro`; colours and type are in `src/styles/global.css`. The repository address is set once in `src/site.ts`.
+The layout, header and footer are in `src/layouts/Base.astro`, which also writes each page's canonical address, link-preview tags and structured data; the sitemap is written by `@astrojs/sitemap` when the site is built. The list of things OpenWren does not do is in `src/components/Limits.astro`, shared by the comparison pages.
+
+The colours and type are in `src/styles/global.css`. The repository address is set once in `src/site.ts`.
 
 ## Stats page
 
@@ -44,21 +53,9 @@ The same values work with `dev`, for example `PUBLIC_STATS_URL=/fixture pnpm --d
 
 ## Screenshots
 
-The screenshots do not exist yet. Put these files in `website/public/screens/` and rebuild:
+Screenshots are in `src/assets/screens/` and are shown with `src/components/Screenshot.astro`, which converts them to WebP in the sizes the page needs. While a file is missing, the page shows a neutral frame with the logo instead. The demo video and its poster stay in `public/screens/`.
 
-| File | Shown on | Suggested size |
-|---|---|---|
-| `inbox.png` | Home, below the introduction | 1600 × 1000 |
-| `warning.png` | Home, next to "Warnings on suspicious mail" | 1200 × 800 |
-| `welcome.png` | Home, next to "Add an account and start" | 1200 × 800 |
-
-While a file is missing, the page shows a neutral frame with the logo instead (decided at build time in `src/components/Screenshot.astro`). If a screenshot has other proportions, change the `width` and `height` passed in `src/pages/index.astro`.
-
-The logo `public/openwren-logo.svg` is a copy of `design/openwren-logo.svg` and is also the favicon.
-
-## Placeholders to fill in
-
-- The three screenshots above.
+`public/og.png` (1200 × 630, from `docs/cover.png`) is the picture shown when a link to the site is shared. The logo `public/openwren-logo.svg` is a copy of `design/openwren-logo.svg`; `favicon-32.png` and `apple-touch-icon.png` are made from it.
 
 ## Deploying
 
