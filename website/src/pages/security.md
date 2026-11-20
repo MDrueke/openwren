@@ -1,7 +1,7 @@
 ---
 layout: ../layouts/Base.astro
 title: Security
-description: How to report a vulnerability in OpenWren and how packages are signed.
+description: How the OpenWren email client protects your mail, how to report a vulnerability and how packages are signed.
 ---
 
 # Security

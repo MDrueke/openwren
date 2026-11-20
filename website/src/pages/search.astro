@@ -1,0 +1,129 @@
+---
+import Base from '../layouts/Base.astro';
+import Screenshot from '../components/Screenshot.astro';
+import { REPO_URL } from '../site';
+---
+
+<Base
+  fullTitle="Email client with fast search across all accounts · OpenWren"
+  description="OpenWren indexes every message on your computer, inside its encrypted database. One search box covers all accounts and years: about 30 ms on 200,000 messages."
+>
+  <section class="page-intro">
+    <h1>An email client whose search finds everything, fast</h1>
+    <p class="lead">
+      Search is where most mail programs let you down: a message you can see in the list does not come up, a search
+      takes ten seconds, or there are three search boxes that each look somewhere else. OpenWren has one search box.
+      It covers every account and every year of mail, and it answers in milliseconds.
+    </p>
+    <div class="actions">
+      <a class="button" href="/download/">Download OpenWren</a>
+      <a class="button secondary" href="/benchmarks/">See the benchmarks</a>
+    </div>
+  </section>
+
+  <section class="pair">
+    <div class="page-body">
+      <h2>One box, every account, every year</h2>
+      <p>
+        Press <kbd>Ctrl</kbd>+<kbd>K</kbd> and type. OpenWren searches the sender, the recipients, the subject and the
+        text of every message it has synced, in all your accounts at once. Results are listed newest first and grouped
+        by year, with the words you searched for highlighted, and each result shows its folder and account.
+      </p>
+      <p>
+        A single word also matches longer words that start with it, so <code>invoic</code> finds "invoice" and
+        "invoices". Put several words in quotes to find them as an exact phrase.
+      </p>
+      <h2>Narrow it down</h2>
+      <p>
+        Buttons above the results limit the search to one account, to mail with attachments, or to a period: the past
+        year, older than one or two years, or dates you choose. You can type the same things:
+      </p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Type</th><th>To find</th></tr></thead>
+          <tbody>
+            <tr><td><code>from:anna</code></td><td>Mail from a sender</td></tr>
+            <tr><td><code>to:</code></td><td>Mail sent to a recipient</td></tr>
+            <tr><td><code>subject:</code></td><td>Words in the subject</td></tr>
+            <tr><td><code>has:attachment</code></td><td>Mail with attachments</td></tr>
+            <tr><td><code>is:unread</code>, <code>is:flagged</code></td><td>Unread or flagged mail</td></tr>
+            <tr><td><code>before:2024-01-31</code>, <code>after:</code></td><td>Mail before or after a date</td></tr>
+            <tr><td><code>in:archive</code></td><td>Mail in one folder</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <Screenshot src="search.png" alt="Searching for &quot;invoice&quot; across three accounts, with filters for account, attachment and date, and results grouped by year" label="Search" width={340} frame={[680, 1240]} />
+  </section>
+
+  <section class="page-body">
+    <h2>Why it is fast</h2>
+    <p>
+      OpenWren does not ask your mail server each time you search, and it does not depend on the search index of your
+      operating system. It keeps its own full-text index (SQLite FTS5) on your computer and updates it as mail
+      arrives. That is why search also works without a connection, and why it does not slow down when the server is
+      busy.
+    </p>
+    <dl class="figures">
+      <div><dt>30 ms</dt><dd>A word found in a few hundred of 200,000 messages</dd></div>
+      <div><dt>7 ms</dt><dd>The same search on 50,000 messages</dd></div>
+      <div><dt>190 ms</dt><dd>The slowest case: a word found in most of 200,000 messages</dd></div>
+    </dl>
+    <p class="muted">
+      Median times of the database work, measured on a laptop with an encrypted mailbox; drawing the results comes on
+      top. The <a href="/benchmarks/">benchmarks page</a> has the machine, the method and the commands to repeat them.
+    </p>
+
+    <h2>The index is encrypted with your mail</h2>
+    <p>
+      A search index contains the words of all your mail. Many fast search tools keep it as an ordinary file next to
+      the mail. In OpenWren the index is a table inside the same encrypted database (SQLCipher) as the messages, so
+      there is no readable copy of your mail's text on the disk. The key is kept in your system's keyring. The
+      <a href="/security/">security page</a> says more.
+    </p>
+
+    <h2>Mail that is not downloaded yet</h2>
+    <p>
+      When you add an account, OpenWren first fetches the sender, recipients and subject of every message, so all of
+      your mail can be found by those within seconds or minutes. The text of the messages follows in the background,
+      newest first. Until a message's text has arrived, "Search the server for more" asks your mail server to look
+      through it.
+    </p>
+
+    <h2>What search does not do yet</h2>
+    <ul>
+      <li>Results are ordered by date, newest first, not by how well they match.</li>
+      <li>Words must be spelt as they are in the mail; a typing mistake is not corrected.</li>
+      <li>The contents of attachments are not searched, only whether a message has one.</li>
+      <li>
+        Text in Chinese, Japanese and Korean is not split into words, so searching inside a sentence in those
+        languages often finds nothing. This is <a href={`${REPO_URL}/issues/3`}>being worked on</a>.
+      </li>
+    </ul>
+
+    <h2>Try it on your own mail</h2>
+    <p>
+      OpenWren is free and open source, and works with Gmail and any IMAP account. Microsoft 365 and Outlook.com
+      accounts are not supported yet.
+    </p>
+    <div class="actions">
+      <a class="button" href="/download/">Download for Windows, Mac or Linux</a>
+      <a class="button secondary" href="/docs/#search">Search in the docs</a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .pair {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) minmax(220px, 340px);
+    gap: 24px 48px;
+    align-items: start;
+    margin-top: 16px;
+  }
+  @media (max-width: 700px) {
+    .pair {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
