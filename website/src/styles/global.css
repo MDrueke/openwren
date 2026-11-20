@@ -184,17 +184,62 @@ main {
   font-size: 0.9rem;
 }
 
-.site-footer .wrap {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px 24px;
-  padding-top: 20px;
+.site-footer a {
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.site-footer a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.site-footer .brand,
+.site-footer .brand:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.4fr) repeat(3, minmax(130px, 1fr));
+  gap: 28px 32px;
+  padding-top: 36px;
   padding-bottom: 28px;
 }
 
-.site-footer a {
-  color: var(--text-2);
+.footer-brand p {
+  max-width: 26ch;
+  margin-top: 10px;
+}
+
+.footer-grid nav {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.footer-grid strong {
+  margin-bottom: 2px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.footer-legal {
+  padding-top: 16px;
+  padding-bottom: 24px;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 720px) {
+  .footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .footer-brand {
+    grid-column: 1 / -1;
+  }
 }
 
 /* Buttons */
@@ -338,4 +383,37 @@ th {
 .prose table {
   display: block;
   overflow-x: auto;
+}
+
+/* Landing pages: a short introduction, then sections of text. */
+
+.page-intro {
+  max-width: 760px;
+}
+
+.page-body {
+  max-width: 760px;
+}
+
+.page-body .shot {
+  margin-top: 1.25rem;
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 20px 32px;
+  margin: 1.25rem 0 0;
+}
+
+.figures dt {
+  font-size: 1.9rem;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.figures dd {
+  margin: 2px 0 0;
+  color: var(--text-2);
 }

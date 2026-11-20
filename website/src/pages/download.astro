@@ -2,21 +2,21 @@
 import Base from '../layouts/Base.astro';
 import Command from '../components/Command.astro';
 import OsIcon from '../components/OsIcon.astro';
-import { REPO_URL, RELEASE } from '../site';
+import { REPO_URL, RELEASE, SOFTWARE_LD } from '../site';
 
 const updates = RELEASE.selfUpdating
   ? 'OpenWren tells you when a new version is out and installs it for you.'
   : 'To update, download the new version and install it over the old one.';
 ---
 
-<Base title="Download" description="Download OpenWren for Linux, macOS or Windows." narrow>
+<Base fullTitle="Download OpenWren: free email client for Windows, Mac and Linux" description="Download OpenWren, a free, open-source email client, for Windows 10 and 11, macOS 11 or later, and Linux (apt, dnf, AppImage)." jsonLd={SOFTWARE_LD} narrow>
   <h1>Download</h1>
-  <p>OpenWren runs on Linux, macOS and Windows. The current version is <strong>{RELEASE.version}</strong>. Choose your system.</p>
+  <p>OpenWren is a free, open-source email client for Windows, macOS and Linux. The current version is <strong>{RELEASE.version}</strong>. Choose your system.</p>
 
   <div class="os-switch" role="tablist" aria-label="Your system">
-    <button type="button" role="tab" data-os="linux" aria-selected="true"><OsIcon os="linux" /> Linux</button>
-    <button type="button" role="tab" data-os="macos" aria-selected="false"><OsIcon os="macos" /> macOS</button>
     <button type="button" role="tab" data-os="windows" aria-selected="false"><OsIcon os="windows" /> Windows</button>
+    <button type="button" role="tab" data-os="macos" aria-selected="false"><OsIcon os="macos" /> macOS</button>
+    <button type="button" role="tab" data-os="linux" aria-selected="true"><OsIcon os="linux" /> Linux</button>
   </div>
 
   <section class="os-panel" data-os="linux" id="linux" role="tabpanel" aria-label="Linux">

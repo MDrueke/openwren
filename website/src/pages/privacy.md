@@ -1,7 +1,7 @@
 ---
 layout: ../layouts/Base.astro
 title: Privacy
-description: Every network request OpenWren makes, what the daily usage request contains, and what is never collected.
+description: Every network request the OpenWren email client makes, what the daily usage request contains, and what is never collected.
 ---
 
 # Privacy

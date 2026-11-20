@@ -57,3 +57,23 @@ async function publishedRelease(): Promise<Release> {
 }
 
 export const RELEASE = await publishedRelease();
+
+/** Structured data for search engines: what OpenWren is, where it runs and that it is free. */
+export const SOFTWARE_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'OpenWren',
+  description:
+    'A free, open-source email client for Windows, Mac and Linux. Mail is kept on your computer in an encrypted database, with fast full-text search.',
+  applicationCategory: 'CommunicationApplication',
+  applicationSubCategory: 'Email client',
+  operatingSystem: 'Windows, macOS, Linux',
+  softwareVersion: RELEASE.version,
+  url: 'https://openwren.app/',
+  downloadUrl: 'https://openwren.app/download/',
+  image: 'https://openwren.app/og.png',
+  license: 'https://www.apache.org/licenses/LICENSE-2.0',
+  isAccessibleForFree: true,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  sameAs: [REPO_URL],
+};
