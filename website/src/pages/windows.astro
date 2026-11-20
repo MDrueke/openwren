@@ -1,0 +1,79 @@
+---
+import Base from '../layouts/Base.astro';
+import Screenshot from '../components/Screenshot.astro';
+import OsIcon from '../components/OsIcon.astro';
+import Limits from '../components/Limits.astro';
+import { RELEASE, REPO_URL } from '../site';
+---
+
+<Base
+  fullTitle="Free, private email client for Windows 10 and 11 · OpenWren"
+  description="OpenWren is a free, open-source email client for Windows 10 and 11. Gmail and IMAP in one inbox, mail encrypted on your PC, search in milliseconds. 14 MB."
+>
+  <section class="page-intro">
+    <h1>A free, private email client for Windows</h1>
+    <p class="lead">
+      OpenWren is an open-source email client for Windows 10 and 11. It puts Gmail and your other accounts in one
+      inbox, keeps your mail on your own PC in an encrypted database, and finds any message in milliseconds. No
+      account to create, no ads, no subscription.
+    </p>
+    <div class="actions">
+      <a class="button" href={RELEASE.windows}><OsIcon os="windows" /> Download {RELEASE.version} for Windows</a>
+      <a class="button secondary" href="/download/#windows">Install steps</a>
+    </div>
+    <p class="muted">For 64-bit Windows 10 and 11. A 14 MB download.</p>
+  </section>
+
+  <section class="page-body">
+    <Screenshot src="inbox.png" alt="The OpenWren inbox: folders on the left, the message list in the middle and a message on the right" label="Inbox" width={760} />
+
+    <h2>Why people look for another Windows mail program</h2>
+    <p>
+      Windows Mail is gone, and the new Outlook that replaced it shows ads in its free version and, for accounts that
+      are not Microsoft's, keeps a copy of your mail on Microsoft's servers. Many people simply want what Windows Mail
+      was: a small program that shows their mail, with a search that works.
+    </p>
+    <p>OpenWren is that, with a few things added:</p>
+    <ul>
+      <li><strong>Search that keeps up.</strong> One search box for all accounts, about 30 ms on a mailbox of 200,000 messages. <a href="/search/">How search works</a>.</li>
+      <li><strong>Your mail stays on your PC.</strong> It is stored in an encrypted database, and the app talks only to your mail servers. The <a href="/privacy/">privacy page</a> lists every network request.</li>
+      <li><strong>Trackers removed.</strong> Tracking pixels and tracking codes in links are taken out, and remote images stay blocked until you ask for them.</li>
+      <li><strong>Warnings on suspicious mail</strong>, for example when a sender's name claims to be a company the address does not belong to.</li>
+      <li><strong>Small.</strong> The window uses the web view that is already part of Windows, so the download is 14 MB.</li>
+    </ul>
+
+    <h2>Installing on Windows</h2>
+    <ol>
+      <li>Download the installer and run it.</li>
+      <li>
+        Windows may show "Windows protected your PC". The installer is not signed with a paid certificate yet, so
+        Windows does not know it. Choose <strong>More info</strong>, then <strong>Run anyway</strong>.
+      </li>
+      <li>Follow the installer. It installs for your user only and needs no administrator rights.</li>
+      <li>Add your account: your address and password for IMAP, or your Gmail address and an <a href="/docs/#gmail-with-an-app-password">app password</a>.</li>
+    </ol>
+    <p>
+      You do not have to take the file on trust: its checksum is published in
+      <a href={RELEASE.checksums}>SHA256SUMS</a>, and the whole source code is in the
+      <a href={REPO_URL}>repository</a>. OpenWren tells you when a new version is out and installs it for you.
+    </p>
+    <p>Passwords are kept in Windows Credential Manager, not in OpenWren's files.</p>
+
+    <h2>What it does not do</h2>
+    <Limits />
+    <p>
+      If your mail is a Microsoft 365 work account, Outlook is still the program for you. See
+      <a href="/outlook-alternative/">OpenWren as an Outlook alternative</a> for an honest comparison.
+    </p>
+
+    <h2>Questions</h2>
+    <h3>Is it really free?</h3>
+    <p>Yes. OpenWren is free software under the Apache 2.0 licence. There is no paid version.</p>
+    <h3>Does it work with Gmail?</h3>
+    <p>Yes, with an app password from your Google account. Gmail labels are shown as folders.</p>
+    <h3>Does it work with Outlook.com or Hotmail addresses?</h3>
+    <p>Not yet. Microsoft accounts need a sign-in method that OpenWren does not have yet.</p>
+    <h3>Can I remove it completely?</h3>
+    <p>Yes. The <a href="/download/#windows">download page</a> lists what to delete, including the stored mail and passwords.</p>
+  </section>
+</Base>

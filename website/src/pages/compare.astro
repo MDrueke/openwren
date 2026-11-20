@@ -1,0 +1,40 @@
+---
+import Base from '../layouts/Base.astro';
+import Limits from '../components/Limits.astro';
+---
+
+<Base
+  fullTitle="How OpenWren compares with Outlook, Thunderbird and others"
+  description="Honest comparisons of the OpenWren email client with Outlook, Thunderbird and other email clients, and pages for Windows, Mac and Linux."
+  narrow
+>
+  <h1>How OpenWren compares</h1>
+  <p>
+    OpenWren is a mail program that does one thing: your mail, kept on your computer, with a search that is quick and
+    covers everything. These pages say where it is the better choice and where it is not.
+  </p>
+
+  <h2>Coming from another email client</h2>
+  <ul>
+    <li><a href="/outlook-alternative/">OpenWren as an Outlook alternative</a>, for Windows and Mac</li>
+    <li><a href="/thunderbird-alternative/">OpenWren as a Thunderbird alternative</a></li>
+    <li><a href="/outlook-search-not-working/">Outlook search not working: how to fix it</a></li>
+  </ul>
+
+  <h2>By system</h2>
+  <ul>
+    <li><a href="/windows/">OpenWren for Windows</a></li>
+    <li><a href="/mac/">OpenWren for Mac</a></li>
+    <li><a href="/linux/">OpenWren for Linux</a>, next to Thunderbird, Evolution and Geary</li>
+  </ul>
+
+  <h2>What sets it apart</h2>
+  <ul>
+    <li><a href="/search/">Search</a>: one box for all accounts, about 30 ms on 200,000 messages, measured in the <a href="/benchmarks/">benchmarks</a>.</li>
+    <li><a href="/privacy/">Privacy</a>: the app talks only to your mail servers, and every request it makes is listed.</li>
+    <li><a href="/security/">Security</a>: mail and the search index are encrypted on disk.</li>
+  </ul>
+
+  <h2>What it does not do</h2>
+  <Limits />
+</Base>

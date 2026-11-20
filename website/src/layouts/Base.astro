@@ -5,27 +5,65 @@ import { REPO_URL } from '../site';
 
 interface Props {
   title?: string;
+  /** A complete title, used as it is. Without it the title is "{title} · OpenWren". */
+  fullTitle?: string;
   description?: string;
   narrow?: boolean;
-  frontmatter?: { title?: string; description?: string };
+  /** Picture for link previews, as a path on this site. */
+  image?: string;
+  /** Structured data (schema.org) describing the page. */
+  jsonLd?: object | object[];
+  frontmatter?: { title?: string; fullTitle?: string; description?: string };
 }
 
 const { frontmatter } = Astro.props;
 const title = Astro.props.title ?? frontmatter?.title;
+const fullTitle = Astro.props.fullTitle ?? frontmatter?.fullTitle;
 const description =
   Astro.props.description ??
   frontmatter?.description ??
-  'A modern, privacy-first, free and open-source mail app for Linux, macOS and Windows that keeps your mail on your computer. Fast, built with Rust.';
+  'Free, open-source email client for Windows, Mac and Linux. Your mail stays on your computer, encrypted, and search finds any message in milliseconds.';
 // Markdown pages (which pass frontmatter) get the narrow reading column.
 const narrow = Astro.props.narrow ?? Boolean(frontmatter);
-const pageTitle = title ? `${title} · OpenWren` : 'OpenWren: a modern, privacy-first, open-source mail app';
+const pageTitle = fullTitle ?? (title ? `${title} · OpenWren` : 'OpenWren: a private, open-source email client with fast search');
+const canonical = new URL(Astro.url.pathname.endsWith('/') ? Astro.url.pathname : Astro.url.pathname + '/', Astro.site);
+const image = new URL(Astro.props.image ?? '/og.png', Astro.site);
+const jsonLd = [Astro.props.jsonLd ?? []].flat();
 
 const nav = [
   { href: '/download/', label: 'Download' },
+  { href: '/search/', label: 'Search' },
   { href: '/docs/', label: 'Docs' },
+  { href: '/compare/', label: 'Compare' },
   { href: '/privacy/', label: 'Privacy' },
-  { href: '/security/', label: 'Security' },
-  { href: '/stats/', label: 'Stats' },
+];
+const footer = [
+  {
+    title: 'OpenWren for',
+    links: [
+      { href: '/windows/', label: 'Windows' },
+      { href: '/mac/', label: 'Mac' },
+      { href: '/linux/', label: 'Linux' },
+    ],
+  },
+  {
+    title: 'Compare',
+    links: [
+      { href: '/outlook-alternative/', label: 'Outlook alternative' },
+      { href: '/thunderbird-alternative/', label: 'Thunderbird alternative' },
+      { href: '/outlook-search-not-working/', label: 'Outlook search not working' },
+    ],
+  },
+  {
+    title: 'Project',
+    links: [
+      { href: '/search/', label: 'Search' },
+      { href: '/benchmarks/', label: 'Benchmarks' },
+      { href: '/security/', label: 'Security' },
+      { href: '/stats/', label: 'Stats' },
+      { href: REPO_URL, label: 'Source code' },
+    ],
+  },
 ];
 const path = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : Astro.url.pathname + '/';
 ---
@@ -37,7 +75,24 @@ const path = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : Astro.url.p
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/svg+xml" href="/openwren-logo.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#256ef3" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="OpenWren" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={image} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={image} />
+    {jsonLd.map((data) => <script type="application/ld+json" set:html={JSON.stringify(data).replaceAll('<', '\\u003c')} />)}
   </head>
   <body>
     <header class="site-header">
@@ -63,6 +118,16 @@ const path = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : Astro.url.p
       </div>
     </main>
     <footer class="site-footer">
+      <div class="wrap footer-links">
+        {
+          footer.map((group) => (
+            <nav aria-label={group.title}>
+              <strong>{group.title}</strong>
+              {group.links.map((link) => <a href={link.href}>{link.label}</a>)}
+            </nav>
+          ))
+        }
+      </div>
       <div class="wrap">
         <span>OpenWren is free software under the Apache License 2.0.</span>
         <span>

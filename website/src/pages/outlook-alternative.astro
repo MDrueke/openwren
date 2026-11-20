@@ -1,0 +1,89 @@
+---
+import Base from '../layouts/Base.astro';
+import Screenshot from '../components/Screenshot.astro';
+import Limits from '../components/Limits.astro';
+import { REPO_URL } from '../site';
+---
+
+<Base
+  fullTitle="Free, private Outlook alternative for Windows and Mac · OpenWren"
+  description="OpenWren is a free, open-source Outlook alternative for Gmail and IMAP accounts: no ads, mail kept on your own computer, and a search that finds things."
+>
+  <section class="page-intro">
+    <h1>A free, private Outlook alternative for Windows and Mac</h1>
+    <p class="lead">
+      If you use Outlook for a Gmail account or a mailbox from your internet or hosting provider, you are carrying a
+      large program for a small job. OpenWren is a free, open-source email client that does that job: your mail, on
+      your computer, with a search that works. It is not a replacement for Outlook with Microsoft 365, and this page
+      says so where it matters.
+    </p>
+    <div class="actions">
+      <a class="button" href="/download/">Download OpenWren</a>
+      <a class="button secondary" href="/search/">How search works</a>
+    </div>
+  </section>
+
+  <section class="page-body">
+    <Screenshot src="inbox.png" alt="The OpenWren inbox: folders, the message list and an open message" label="Inbox" width={760} />
+
+    <h2>Why people leave Outlook</h2>
+    <ul>
+      <li><strong>Search.</strong> A message you can see in the list does not come up when you search for it. It is the complaint people repeat most about Outlook, year after year.</li>
+      <li><strong>Ads and a subscription.</strong> The free version of the new Outlook shows ads in the message list; removing them costs a Microsoft 365 subscription.</li>
+      <li><strong>Where your mail goes.</strong> When you add a Gmail or IMAP account to the new Outlook, Microsoft keeps a copy of that mail on its own servers.</li>
+      <li><strong>Size.</strong> It is a calendar, a task list, a contact manager and a mail program, whether you use them or not.</li>
+    </ul>
+
+    <h2>Outlook and OpenWren side by side</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th></th><th>OpenWren</th><th>New Outlook</th></tr></thead>
+        <tbody>
+          <tr><td>Price</td><td>Free, no paid version</td><td>Free with ads, or a Microsoft 365 subscription</td></tr>
+          <tr><td>Open source</td><td>Yes (Apache 2.0)</td><td>No</td></tr>
+          <tr><td>Gmail and IMAP accounts</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td>Microsoft 365, Exchange, Outlook.com</td><td>No</td><td>Yes</td></tr>
+          <tr><td>Where Gmail and IMAP mail is kept</td><td>On your computer, encrypted</td><td>Also copied to Microsoft's servers</td></tr>
+          <tr><td>Search</td><td>Own index on your computer, all accounts at once, works offline</td><td>Mostly done by Microsoft's servers</td></tr>
+          <tr><td>Tracking pixels and link trackers</td><td>Removed</td><td>Images can be blocked; link trackers stay</td></tr>
+          <tr><td>Calendar, contacts, tasks</td><td>No</td><td>Yes</td></tr>
+          <tr><td>Needs an account with the maker</td><td>No</td><td>A Microsoft account</td></tr>
+          <tr><td>Linux</td><td>Yes</td><td>No</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">
+      To the best of my knowledge in November 2026. If a cell is wrong or out of date, please
+      <a href={`${REPO_URL}/issues`}>say so</a>.
+    </p>
+
+    <h2>Stay with Outlook if</h2>
+    <ul>
+      <li>your mail is a Microsoft 365 or Exchange account at work, or an Outlook.com or Hotmail address;</li>
+      <li>you live in the calendar, share calendars or book meeting rooms;</li>
+      <li>your company's IT department manages your mail program.</li>
+    </ul>
+
+    <h2>Try OpenWren if</h2>
+    <ul>
+      <li>your accounts are Gmail or IMAP (most providers and hosting companies);</li>
+      <li>you want all of them in one inbox, with <a href="/search/">one search box</a> that answers in milliseconds;</li>
+      <li>you would rather your mail stayed on your own computer, and want to be able to check that it does: the <a href="/privacy/">privacy page</a> lists every network request the app makes;</li>
+      <li>you want mail only, in a 14 MB download.</li>
+    </ul>
+
+    <h2>What OpenWren does not do</h2>
+    <Limits />
+
+    <h2>Moving over</h2>
+    <p>
+      There is nothing to export. With IMAP your mail lives on your mail server, so you add the same account in
+      OpenWren and it downloads your folders and messages. Keep Outlook installed until you are happy; both can use
+      the same account at once. Start on the page for <a href="/windows/">Windows</a> or <a href="/mac/">Mac</a>.
+    </p>
+    <p>
+      Only looking to repair Outlook's search? See
+      <a href="/outlook-search-not-working/">Outlook search not working: how to fix it</a>.
+    </p>
+  </section>
+</Base>

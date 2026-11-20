@@ -1,0 +1,138 @@
+---
+import Base from '../layouts/Base.astro';
+
+const faq = [
+  {
+    q: 'Why is my Outlook search not working?',
+    a: 'In classic Outlook for Windows the usual cause is the Windows Search index: it is incomplete, damaged, or does not include Outlook. Rebuilding the index from File, Options, Search, Indexing Options, Advanced, Rebuild fixes most cases. In the new Outlook the search runs on the mail server, so the usual causes are the search scope or a problem with the service.',
+  },
+  {
+    q: 'How long does rebuilding the Outlook search index take?',
+    a: 'From a few minutes to several hours, depending on the size of your mailbox. Leave Outlook open and the computer on. Until it is finished, searches return incomplete results.',
+  },
+  {
+    q: 'Why does Outlook not find old emails?',
+    a: 'Either the search looks only in the current folder, or the old mail is not stored on your computer. Set the scope to all mailboxes, and for an Exchange or Microsoft 365 account check how much mail Outlook keeps offline.',
+  },
+];
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faq.map((item) => ({ '@type': 'Question', name: item.q, acceptedAnswer: { '@type': 'Answer', text: item.a } })),
+};
+---
+
+<Base
+  fullTitle="Outlook search not working: how to fix it on Windows and Mac"
+  description="Outlook search finds nothing or misses mail? The fixes that work: check the search scope, rebuild the index on Windows, repair search on Mac."
+  jsonLd={jsonLd}
+  narrow
+>
+  <h1>Outlook search not working: how to fix it</h1>
+  <p>
+    Outlook's search finds nothing, misses messages you can see in the list, or stops at mail from a few months ago.
+    These are the fixes that solve it most often, in the order worth trying. Which ones apply depends on the Outlook
+    you have.
+  </p>
+
+  <h2>First: which Outlook do you have?</h2>
+  <ul>
+    <li><strong>Classic Outlook for Windows</strong> has a File menu at the top left. It searches with an index that Windows keeps on your computer.</li>
+    <li><strong>New Outlook for Windows</strong> and <strong>Outlook on the web</strong> have a gear icon for Settings and no File menu. They search on the mail server.</li>
+    <li><strong>Outlook for Mac</strong> has a "New Outlook" switch at the top of the window; the older, "legacy" version searches with the Mac's Spotlight index.</li>
+  </ul>
+
+  <h2>Every version: check where it is searching</h2>
+  <p>
+    Before repairing anything, look at the scope beside the search box. If it says "Current Folder", Outlook looks
+    only in the folder you are in. Change it to "Current Mailbox" or "All Mailboxes" and search again. Also remove
+    any filter that is still set, such as "Has attachments" or a date range.
+  </p>
+  <p>In the new Outlook for Windows the default is under Settings, General, Search: set the search scope there.</p>
+
+  <h2>Classic Outlook for Windows</h2>
+  <h3>1. See whether indexing is finished</h3>
+  <p>
+    Click in the search box, then choose Search Tools, Indexing Status. If it says that items remain to be indexed,
+    leave Outlook open and wait: searches are incomplete until the count reaches zero.
+  </p>
+  <h3>2. Make sure Outlook is being indexed</h3>
+  <p>
+    Go to File, Options, Search and click Indexing Options. "Microsoft Outlook" must be in the list of included
+    locations. If it is missing, click Modify and tick it.
+  </p>
+  <h3>3. Rebuild the index</h3>
+  <p>
+    This is the fix that works most often. In File, Options, Search, click Indexing Options, then Advanced, and under
+    Troubleshooting click Rebuild. Rebuilding takes from minutes to hours on a large mailbox; keep Outlook open while
+    it runs.
+  </p>
+  <h3>4. Old mail is missing: check what is kept on your computer</h3>
+  <p>
+    With an Exchange or Microsoft 365 account, Outlook may keep only the last months of mail on your computer, and
+    its search then covers only those. Go to File, Account Settings, Account Settings, select the account, click
+    Change and move the "Download email for the past" slider to "All". Outlook then downloads the rest, which
+    takes a while.
+  </p>
+  <h3>5. Run the Windows troubleshooter and repair Office</h3>
+  <p>
+    On Windows 10, open Start, Settings, Update &amp; Security, Troubleshoot and run "Search and Indexing". If search
+    is still broken, repair Office: in Windows Settings open Apps, find Microsoft 365 or Office, choose Modify and
+    run Quick Repair, then Online Repair if that does not help.
+  </p>
+
+  <h2>New Outlook for Windows and Outlook on the web</h2>
+  <p>
+    Here the search runs on Microsoft's servers, so there is no index to rebuild. Check the scope and filters as
+    above, then close and reopen Outlook or reload the page. If results are still missing for everyone in your
+    organisation, it is probably a service problem; your administrator can see those in the Microsoft 365 service
+    health page.
+  </p>
+
+  <h2>Outlook for Mac</h2>
+  <ol>
+    <li>Restart the Mac. Spotlight restarts with it, and that alone often brings search back.</li>
+    <li>
+      Open System Settings and look at the Spotlight privacy list. Your Outlook profile folder, or a folder above it,
+      must not be in that list.
+    </li>
+    <li>
+      Microsoft offers a small program called OutlookSearchRepair, described in its article "Troubleshoot search
+      issues in Outlook for Mac". It reindexes Outlook's data; run it and leave it open until it has finished.
+    </li>
+    <li>Switching between the new and the legacy Outlook (the switch at the top of the window) changes how search works, and is worth trying.</li>
+  </ol>
+
+  <p class="muted">
+    Microsoft's own instructions are in its support articles "Troubleshooting Outlook search issues" and "Fix search
+    issues by rebuilding your Instant Search catalog". Menus move between versions; if a name here does not match
+    yours, those articles have the current ones.
+  </p>
+
+  <h2>Questions</h2>
+  {
+    faq.map((item) => (
+      <Fragment>
+        <h3>{item.q}</h3>
+        <p>{item.a}</p>
+      </Fragment>
+    ))
+  }
+
+  <h2>If you are tired of fixing it</h2>
+  <p>
+    I make <a href="/">OpenWren</a>, a free, open-source email client for Windows, Mac and Linux, and search is the
+    part I care most about. It keeps its own search index on your computer, inside an encrypted database, so it does
+    not depend on Windows Search, Spotlight or the server. One search box covers all your accounts and years of mail,
+    and a typical search on 200,000 messages takes about 30 ms. <a href="/search/">How its search works</a>.
+  </p>
+  <p class="note">
+    <strong>Check this first:</strong> OpenWren works with Gmail and with IMAP accounts. It does
+    <strong>not</strong> work with Microsoft 365, Exchange or Outlook.com accounts yet. If your Outlook mail is one of
+    those, OpenWren cannot help you today, and the fixes above are your best route.
+  </p>
+  <div class="actions">
+    <a class="button" href="/download/">Download OpenWren</a>
+    <a class="button secondary" href="/outlook-alternative/">OpenWren and Outlook compared</a>
+  </div>
+</Base>
