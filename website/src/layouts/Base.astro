@@ -39,8 +39,9 @@ const nav = [
 ];
 const footer = [
   {
-    title: 'OpenWren for',
+    title: 'Get OpenWren',
     links: [
+      { href: '/download/', label: 'Download' },
       { href: '/windows/', label: 'Windows' },
       { href: '/mac/', label: 'Mac' },
       { href: '/linux/', label: 'Linux' },
@@ -57,8 +58,8 @@ const footer = [
   {
     title: 'Project',
     links: [
-      { href: '/search/', label: 'Search' },
       { href: '/benchmarks/', label: 'Benchmarks' },
+      { href: '/privacy/', label: 'Privacy' },
       { href: '/security/', label: 'Security' },
       { href: '/stats/', label: 'Stats' },
       { href: REPO_URL, label: 'Source code' },
@@ -118,7 +119,14 @@ const path = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : Astro.url.p
       </div>
     </main>
     <footer class="site-footer">
-      <div class="wrap footer-links">
+      <div class="wrap footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="/">
+            <img src="/openwren-logo.svg" alt="" width="24" height="24" />
+            OpenWren
+          </a>
+          <p>A private, open-source email client for Windows, Mac and Linux.</p>
+        </div>
         {
           footer.map((group) => (
             <nav aria-label={group.title}>
@@ -128,12 +136,7 @@ const path = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : Astro.url.p
           ))
         }
       </div>
-      <div class="wrap">
-        <span>OpenWren is free software under the Apache License 2.0.</span>
-        <span>
-          <a href={REPO_URL}>Source code</a> · <a href="/privacy/">Privacy</a> · <a href="/security/">Security</a>
-        </span>
-      </div>
+      <div class="wrap footer-legal">Free software under the Apache License 2.0.</div>
     </footer>
   </body>
 </html>
