@@ -4,6 +4,10 @@ import Screenshot from '../components/Screenshot.astro';
 import OsIcon from '../components/OsIcon.astro';
 import Limits from '../components/Limits.astro';
 import { RELEASE, REPO_URL } from '../site';
+
+const updates = RELEASE.selfUpdating
+  ? 'OpenWren tells you when a new version is out and installs it for you.'
+  : 'To update, download the new version and install it over the old one.';
 ---
 
 <Base
@@ -55,7 +59,7 @@ import { RELEASE, REPO_URL } from '../site';
     <p>
       You do not have to take the file on trust: its checksum is published in
       <a href={RELEASE.checksums}>SHA256SUMS</a>, and the whole source code is in the
-      <a href={REPO_URL}>repository</a>. OpenWren tells you when a new version is out and installs it for you.
+      <a href={REPO_URL}>repository</a>. {updates}
     </p>
     <p>Passwords are kept in Windows Credential Manager, not in OpenWren's files.</p>
 
