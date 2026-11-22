@@ -33,6 +33,11 @@ const bridgeServer = (protocol: "imap" | "smtp"): Server => ({ ...protonBridge[p
 /** The servers guessed from the address, as for a new IMAP account. */
 const guessedServer = (protocol: "imap" | "smtp", address: string): Server => ({ host: guessHost(address, protocol), port: String(ports[protocol].tls), security: "tls", edited: false });
 
+interface Servers {
+  incoming: Server;
+  outgoing: Server;
+}
+
 function ServerRow({ id, title, optional, protocol, value, onChange }: { id: string; title: string; optional?: boolean; protocol: "imap" | "smtp"; value: Server; onChange: (s: Server) => void }) {
   return (
     <>
@@ -73,7 +78,7 @@ const validPort = (s: Server) => Number.isInteger(Number(s.port)) && Number(s.po
  * What was typed, kept while OpenWren runs so that closing the dialog after a
  * failed attempt does not lose it. Kept in memory only, and forgotten once the account is added.
  */
-let remembered: { kind: Kind; address: string; name: string; password: string; incoming: Server; outgoing: Server } | null = null;
+let remembered: { kind: Kind; address: string; name: string; password: string; mail: Servers; bridge: Servers } | null = null;
 
 let preferred: Kind | null = null;
 
@@ -95,9 +100,14 @@ export function AddAccount() {
   const [address, setAddress] = useState(remembered?.address ?? "");
   const [name, setName] = useState(remembered?.name ?? "");
   const [password, setPassword] = useState(remembered?.password ?? "");
-  const [incoming, setIncoming] = useState<Server>(() => remembered?.incoming ?? (kind === "proton" ? bridgeServer("imap") : guessedServer("imap", "")));
-  const [outgoing, setOutgoing] = useState<Server>(() => remembered?.outgoing ?? (kind === "proton" ? bridgeServer("smtp") : guessedServer("smtp", "")));
-  remembered = { kind, address, name, password, incoming, outgoing };
+  // The IMAP and Proton Mail tabs each keep their own servers, so visiting one never changes the other.
+  const [mail, setMail] = useState<Servers>(() => remembered?.mail ?? { incoming: guessedServer("imap", ""), outgoing: guessedServer("smtp", "") });
+  const [bridge, setBridge] = useState<Servers>(() => remembered?.bridge ?? { incoming: bridgeServer("imap"), outgoing: bridgeServer("smtp") });
+  const { incoming, outgoing } = kind === "proton" ? bridge : mail;
+  const setServers = kind === "proton" ? setBridge : setMail;
+  const setIncoming = (incoming: Server) => setServers((s) => ({ ...s, incoming }));
+  const setOutgoing = (outgoing: Server) => setServers((s) => ({ ...s, outgoing }));
+  remembered = { kind, address, name, password, mail, bridge };
   // Gmail has two ways in. An app password works for everyone; Google sign-in needs the user's own client ID.
   const [googleWay, setGoogleWay] = useState<"password" | "oauth">("password");
   const [busy, setBusy] = useState(false);
@@ -107,22 +117,15 @@ export function AddAccount() {
   const close = () => setDialog(null);
 
   function changeKind(next: Kind) {
-    // Bridge has fixed servers on this computer; leaving it goes back to guessing from the address.
-    if (next === "proton" && kind !== "proton") {
-      setIncoming(bridgeServer("imap"));
-      setOutgoing(bridgeServer("smtp"));
-    } else if (next !== "proton" && kind === "proton") {
-      setIncoming(guessedServer("imap", address));
-      setOutgoing(guessedServer("smtp", address));
-    }
     setKind(next);
     setError("");
   }
 
   function changeAddress(value: string) {
     setAddress(value);
-    if (!incoming.edited) setIncoming((s) => ({ ...s, host: guessHost(value, "imap") }));
-    if (!outgoing.edited) setOutgoing((s) => ({ ...s, host: guessHost(value, "smtp") }));
+    // Only the IMAP tab's servers follow the address; Bridge's are on this computer whatever the address is.
+    const follow = (s: Server, protocol: "imap" | "smtp") => (s.edited ? s : { ...s, host: guessHost(value, protocol) });
+    setMail((s) => ({ incoming: follow(s.incoming, "imap"), outgoing: follow(s.outgoing, "smtp") }));
   }
 
   async function submit(e: React.FormEvent) {
