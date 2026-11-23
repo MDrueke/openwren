@@ -185,27 +185,31 @@ function Accounts() {
       </p>
       <Problem text={error} />
 
-      <h3 className="mt-6 mb-1 font-semibold">Google sign-in</h3>
-      <p className="mb-2 text-[13px] text-ink2">
-        Gmail needs a Google OAuth client of type "Desktop app" from your own Google Cloud project, with the Gmail API enabled. Paste its ID and secret here.
-      </p>
-      <label className={fieldCaption} htmlFor="g-id">
-        Client ID
-      </label>
-      <input id="g-id" className={fieldBox} value={settings.google_client_id ?? ""} placeholder="1234567890-abc.apps.googleusercontent.com" autoComplete="off" onChange={(e) => void setSetting("google_client_id", e.target.value)} />
-      <label className={`${fieldCaption} mt-3`} htmlFor="g-secret">
-        Client secret
-      </label>
-      <input id="g-secret" type="password" className={fieldBox} value={settings.google_client_secret ?? ""} autoComplete="off" onChange={(e) => void setSetting("google_client_secret", e.target.value)} />
+      <details className="mt-6">
+        <summary className="cursor-pointer font-semibold">For advanced users: your own sign-in clients</summary>
+        <p className="mt-1 text-[13px] text-ink2">Client IDs for signing in to Gmail and Outlook in the browser. Most people never need these.</p>
+        <h3 className="mt-4 mb-1 font-semibold">Google sign-in</h3>
+        <p className="mb-2 text-[13px] text-ink2">
+          Gmail needs a Google OAuth client of type "Desktop app" from your own Google Cloud project, with the Gmail API enabled. Paste its ID and secret here.
+        </p>
+        <label className={fieldCaption} htmlFor="g-id">
+          Client ID
+        </label>
+        <input id="g-id" className={fieldBox} value={settings.google_client_id ?? ""} placeholder="1234567890-abc.apps.googleusercontent.com" autoComplete="off" onChange={(e) => void setSetting("google_client_id", e.target.value)} />
+        <label className={`${fieldCaption} mt-3`} htmlFor="g-secret">
+          Client secret
+        </label>
+        <input id="g-secret" type="password" className={fieldBox} value={settings.google_client_secret ?? ""} autoComplete="off" onChange={(e) => void setSetting("google_client_secret", e.target.value)} />
 
-      <h3 className="mt-6 mb-1 font-semibold">Microsoft sign-in</h3>
-      <p className="mb-2 text-[13px] text-ink2">
-        OpenWren's own packages sign in to Outlook without this. To use your own app registration from Microsoft Entra instead, or in a copy you built yourself, paste its application (client) ID here.
-      </p>
-      <label className={fieldCaption} htmlFor="ms-id">
-        Client ID
-      </label>
-      <input id="ms-id" className={fieldBox} value={settings.microsoft_client_id ?? ""} placeholder="00000000-0000-0000-0000-000000000000" autoComplete="off" onChange={(e) => void setSetting("microsoft_client_id", e.target.value)} />
+        <h3 className="mt-6 mb-1 font-semibold">Microsoft sign-in</h3>
+        <p className="mb-2 text-[13px] text-ink2">
+          OpenWren's own packages sign in to Outlook without this. To use your own app registration from Microsoft Entra instead, or in a copy you built yourself, paste its application (client) ID here.
+        </p>
+        <label className={fieldCaption} htmlFor="ms-id">
+          Client ID
+        </label>
+        <input id="ms-id" className={fieldBox} value={settings.microsoft_client_id ?? ""} placeholder="00000000-0000-0000-0000-000000000000" autoComplete="off" onChange={(e) => void setSetting("microsoft_client_id", e.target.value)} />
+      </details>
     </>
   );
 }
