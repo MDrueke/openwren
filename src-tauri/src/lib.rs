@@ -115,6 +115,9 @@ pub struct AppState {
     update: Mutex<Option<updates::Available>>,
     /// OAuth access tokens per account, with their expiry (Unix seconds).
     tokens: Mutex<HashMap<i64, (String, i64)>>,
+    /// Held while a renewed sign-in token is saved, and while an account and its token are
+    /// deleted, so that a renewal cannot put back the token of an account removed meanwhile.
+    credentials: tokio::sync::Mutex<()>,
 }
 
 // ---------- passwords ----------
@@ -140,18 +143,21 @@ async fn forget_password(address: String) {
 
 /// True when the name Microsoft signed the user in with shows that the mailbox is not the
 /// one at the typed address. The two differ honestly in one case only: a Microsoft account
-/// made with an address from elsewhere, whose mailbox has an outlook.com address of its own.
+/// made with an address from elsewhere, whose mailbox Microsoft names
+/// outlook_ and sixteen hexadecimal digits, at outlook.com.
 fn other_mailbox(typed: &str, signed_in: &str) -> bool {
-    let domain = |address: &str| address.rsplit('@').next().unwrap_or("").to_lowercase();
-    let microsoft = |domain: &str| {
-        let labels: Vec<&str> = domain.split('.').collect();
-        let country = |l: &str| l.len() == 2 && l.bytes().all(|b| b.is_ascii_lowercase());
-        domain == "msn.com"
-            || matches!(labels.as_slice(), [name, rest @ ..] if ["outlook", "hotmail", "live"].contains(name)
-                && match rest { [one] => *one == "com" || country(one), [a, b] => ["com", "co"].contains(a) && country(b), _ => false })
-    };
-    let (typed_at, signed_at) = (domain(typed), domain(signed_in));
-    !typed.eq_ignore_ascii_case(signed_in) && (typed_at == signed_at || microsoft(&signed_at) || !microsoft(&typed_at))
+    if typed.eq_ignore_ascii_case(signed_in) {
+        return false;
+    }
+    let typed = typed.to_lowercase();
+    let made_by_microsoft = typed
+        .strip_suffix("@outlook.com")
+        .and_then(|name| name.strip_prefix("outlook_"))
+        .is_some_and(|digits| digits.len() == 16 && digits.bytes().all(|b| b.is_ascii_hexdigit()));
+    // Someone who signs in with an Outlook address has the mailbox at that address.
+    let domain = signed_in.rsplit('@').next().unwrap_or("").to_lowercase();
+    let at_microsoft = domain == "msn.com" || ["outlook", "hotmail", "live"].contains(&domain.split('.').next().unwrap_or(""));
+    !made_by_microsoft || at_microsoft
 }
 
 /// The key of the encrypted database, kept in the system keyring.
@@ -230,16 +236,12 @@ async fn account_secret(state: &AppState, account_id: i64) -> Result<(String, Ac
     // Microsoft replaces the refresh token each time it is used. Keep the new one.
     if let Some(next) = tokens.refresh_token.filter(|next| *next != stored) {
         // The account may have been removed while the provider was answering. Its token
-        // must not come back into the keyring then.
-        let removed = || db::account_settings(&db::lock(&state.db), account_id).is_err();
-        if removed() {
+        // must not come back into the keyring then: removal waits for this lock too.
+        let _saving = state.credentials.lock().await;
+        if db::account_settings(&db::lock(&state.db), account_id).is_err() {
             return Err(Error("This account was removed.".into()));
         }
         save_password(address.clone(), next).await?;
-        if removed() {
-            forget_password(address.clone()).await;
-            return Err(Error("This account was removed.".into()));
-        }
     }
     state.tokens.lock().unwrap().insert(account_id, (tokens.access_token.clone(), now() + tokens.expires_in));
     Ok((address, settings, Secret::OAuthToken(tokens.access_token)))
@@ -895,15 +897,22 @@ async fn remove_account(app: AppHandle, state: State<'_, AppState>, id: i64) -> 
     // A large mailbox takes a while to delete. It goes in steps on a thread of its own, so the
     // rest of the app keeps answering meanwhile.
     let db = state.db.clone();
+    let messages = db.clone();
     tokio::task::spawn_blocking(move || -> Result<()> {
-        while db::delete_account_messages(&db::lock(&db), id, 2000)? > 0 {}
-        db::delete_account(&db::lock(&db), id)
+        while db::delete_account_messages(&db::lock(&messages), id, 2000)? > 0 {}
+        Ok(())
     })
     .await??;
+    // The account and its token go together, with no token renewal in between.
+    {
+        let _removing = state.credentials.lock().await;
+        db::delete_account(&db::lock(&db), id)?;
+        state.tokens.lock().unwrap().remove(&id);
+        forget_password(address).await;
+    }
     if let Some(wake) = state.wakers.lock().unwrap().remove(&id) {
         wake.notify_one(); // its background task notices the account is gone and stops
     }
-    forget_password(address).await;
     let _ = app.emit("mail-changed", id);
     Ok(())
 }
@@ -1577,7 +1586,9 @@ mod tests {
         assert!(other_mailbox("katy@outlook.com", "tom@hotmail.co.uk"));
         assert!(other_mailbox("katy@example.org", "tom@example.org"));
         assert!(other_mailbox("katy@example.org", "tom@gmail.com"));
-        assert!(other_mailbox("katy@outlook.evil.example", "tom@outlook.evil.example"));
+        assert!(other_mailbox("katy@outlook.com", "tom@gmail.com"), "an address of one's own choosing is signed in with itself");
+        assert!(other_mailbox("outlook_553e00adc7e559f6@outlook.com", "tom@hotmail.com"));
+        assert!(other_mailbox("outlook_notdigits@outlook.com", "tom@gmail.com"));
     }
     use super::{is_public, parse_desktop_font, unsubscribe_mail, web_link, OPENABLE};
     use crate::model::{AccountSettings, Provider, Security, ServerSettings};
@@ -1746,6 +1757,7 @@ pub fn run() {
                 tray: Default::default(),
                 update: Default::default(),
                 tokens: Default::default(),
+                credentials: Default::default(),
             });
             match add_tray_icon(app) {
                 Ok(()) => app.state::<AppState>().tray.store(true, std::sync::atomic::Ordering::Relaxed),
