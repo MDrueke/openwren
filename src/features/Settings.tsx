@@ -186,7 +186,7 @@ function Accounts() {
       <Problem text={error} />
 
       <details className="mt-6">
-        <summary className="cursor-pointer font-semibold">For advanced users: your own sign-in clients</summary>
+        <summary className="cursor-pointer">For advanced users: your own sign-in clients</summary>
         <p className="mt-1 text-[13px] text-ink2">Client IDs for signing in to Gmail and Outlook in the browser. Most people never need these.</p>
         <h3 className="mt-4 mb-1 font-semibold">Google sign-in</h3>
         <p className="mb-2 text-[13px] text-ink2">
