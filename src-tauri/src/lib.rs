@@ -841,7 +841,7 @@ async fn add_account(app: AppHandle, state: State<'_, AppState>, account: NewAcc
     }
     save_password(address.clone(), account.password.clone()).await?;
     let settings = AccountSettings { imap: Some(imap), smtp: account.smtp.clone(), ..Default::default() };
-    let kind = if settings.is_gmail() { "gmail" } else { "imap" };
+    let kind = settings.stored_kind();
     let id = db::insert_account(&db::lock(&state.db), &address, account.display_name.trim(), kind, &settings)?;
     return_session(&state, id, session).await;
     spawn_account(app, id);
@@ -1150,24 +1150,37 @@ async fn oauth_sign_in(app: AppHandle, state: State<'_, AppState>, provider: Pro
     app.opener().open_url(url, None::<&str>).map_err(|e| Error(format!("Could not open the browser: {e}")))?;
     let code = oauth::wait_for_code(loopback, &csrf, Duration::from_secs(300)).await?;
     let tokens = oauth::exchange_code(&config, &code, &verifier, &redirect).await?;
-    let refresh = tokens.refresh_token.ok_or(Error(match provider {
+    let refresh = tokens.refresh_token.clone().ok_or(Error(match provider {
         Provider::Google => "Google did not return a refresh token. Remove OpenWren under \"Third-party access\" in your Google account and try again.".into(),
         Provider::Microsoft => "Microsoft did not return a refresh token. Try again.".into(),
     }))?;
 
-    let server = |host: &str, port: u16, security: Security| ServerSettings { host: host.into(), port, security, username: address.clone() };
-    let (kind, imap, smtp) = match provider {
-        Provider::Google => ("gmail", server("imap.gmail.com", 993, Security::Tls), server("smtp.gmail.com", 465, Security::Tls)),
-        Provider::Microsoft => ("outlook", server("outlook.office365.com", 993, Security::Tls), server("smtp.office365.com", 587, Security::Starttls)),
+    // Microsoft's mail server knows the mailbox by the name the user signed in with, which
+    // is not always the address typed here.
+    let user = match provider {
+        Provider::Microsoft => tokens.signed_in_as().unwrap_or_else(|| address.clone()),
+        Provider::Google => address.clone(),
+    };
+    let server = |host: &str, port: u16, security: Security| ServerSettings { host: host.into(), port, security, username: user.clone() };
+    let (imap, smtp) = match provider {
+        Provider::Google => (server("imap.gmail.com", 993, Security::Tls), server("smtp.gmail.com", 465, Security::Tls)),
+        Provider::Microsoft => (server("outlook.office365.com", 993, Security::Tls), server("smtp.office365.com", 587, Security::Starttls)),
     };
     let session = imap::connect_with(&imap, &Secret::OAuthToken(tokens.access_token.clone())).await.map_err(|e| match provider {
-        // The browser may be signed in to another account than the address typed here.
-        Provider::Microsoft => Error(format!("{} Check that you signed in to Microsoft as {address}.", e.0)),
-        Provider::Google => e,
+        Provider::Microsoft if e.0.contains("not connected") => Error(format!(
+            "Microsoft signed you in as {user}, but its mail server would not open a mailbox for that name. The account may have no Outlook mailbox, or IMAP may be switched off in Outlook's settings. ({})",
+            e.0
+        )),
+        _ => e,
     })?;
-    save_password(address.clone(), refresh).await?;
     let settings = AccountSettings { imap: Some(imap), smtp: Some(smtp), oauth: true, provider: Some(provider) };
-    let id = db::insert_account(&db::lock(&state.db), &address, display_name.trim(), kind, &settings)?;
+    let kind = settings.kind();
+    // Save the account before its token: a token in the keyring without an account would stay there unseen.
+    let id = db::insert_account(&db::lock(&state.db), &address, display_name.trim(), settings.stored_kind(), &settings)?;
+    if let Err(e) = save_password(address.clone(), refresh).await {
+        let _ = db::delete_account(&db::lock(&state.db), id);
+        return Err(e);
+    }
     state.tokens.lock().unwrap().insert(id, (tokens.access_token, now() + tokens.expires_in));
     return_session(&state, id, session).await;
     spawn_account(app, id);

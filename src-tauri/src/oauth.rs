@@ -18,7 +18,8 @@ use crate::model::Provider;
 /// Full access to Gmail over IMAP and SMTP.
 pub const GMAIL_SCOPE: &str = "https://mail.google.com/";
 /// Outlook over IMAP and SMTP, and a refresh token to stay signed in.
-pub const OUTLOOK_SCOPE: &str = "https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/SMTP.Send offline_access";
+/// "openid email" adds the name the user signed in with to the answer.
+pub const OUTLOOK_SCOPE: &str = "https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/SMTP.Send offline_access openid email";
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -75,6 +76,26 @@ pub struct Tokens {
     /// Seconds until the access token expires.
     #[serde(default)]
     pub expires_in: i64,
+    /// Who signed in, as a signed note (a JWT). Sent when the scope includes "openid".
+    #[serde(default)]
+    pub id_token: Option<String>,
+}
+
+impl Tokens {
+    /// The address the user signed in with, which is the name the mail server knows them by.
+    /// It can differ from the address typed in OpenWren: a Microsoft account made with a
+    /// Gmail address signs in to its Outlook mailbox under that Gmail address.
+    /// The note comes straight from the provider over TLS, so its signature is not checked.
+    pub fn signed_in_as(&self) -> Option<String> {
+        let payload = self.id_token.as_deref()?.split('.').nth(1)?;
+        let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(payload.trim_end_matches('=')).ok()?;
+        let claims: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+        ["email", "preferred_username"]
+            .iter()
+            .filter_map(|key| claims.get(key)?.as_str())
+            .map(|name| name.trim().to_lowercase())
+            .find(|name| name.contains('@') && !name.contains(char::is_whitespace))
+    }
 }
 
 /// The temporary port on this computer that the browser comes back to.
@@ -291,6 +312,16 @@ mod tests {
         let waiting = tokio::spawn(async move { wait_for_code(listener.into(), "good", Duration::from_secs(5)).await });
         get(port, "/?state=forged&code=x").await;
         assert!(waiting.await.unwrap().is_err());
+    }
+
+    #[test]
+    fn the_signed_in_name_is_read_from_the_id_token() {
+        let note = |claims: &str| Tokens { access_token: String::new(), refresh_token: None, expires_in: 0, id_token: Some(format!("e30.{}.sig", url_safe(claims.as_bytes()))) };
+        assert_eq!(note(r#"{"email":"Katy@Gmail.com","preferred_username":"other@x.y"}"#).signed_in_as().as_deref(), Some("katy@gmail.com"));
+        assert_eq!(note(r#"{"preferred_username":"katy@outlook.com"}"#).signed_in_as().as_deref(), Some("katy@outlook.com"));
+        assert_eq!(note(r#"{"email":"not an address"}"#).signed_in_as(), None);
+        assert_eq!(Tokens { id_token: Some("garbage".into()), ..note("{}") }.signed_in_as(), None);
+        assert_eq!(Tokens { id_token: None, ..note("{}") }.signed_in_as(), None);
     }
 
     #[test]

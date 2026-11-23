@@ -351,6 +351,21 @@ impl AccountSettings {
         self.oauth.then(|| self.provider.unwrap_or(Provider::Google))
     }
 
+    /// The account kind the interface shows: "gmail", "outlook" or "imap".
+    pub fn kind(&self) -> &'static str {
+        match self.provider() {
+            Some(Provider::Microsoft) => "outlook",
+            _ if self.is_gmail() => "gmail",
+            _ => "imap",
+        }
+    }
+
+    /// The kind as the accounts table accepts it. The table knows no "outlook";
+    /// an Outlook account is an IMAP account there and is told apart by its settings.
+    pub fn stored_kind(&self) -> &'static str {
+        if self.is_gmail() { "gmail" } else { "imap" }
+    }
+
     /// True when the provider files a copy of every sent message itself, so none must be added.
     /// Gmail does, and so does Microsoft for mail sent with its own sign-in.
     pub fn files_sent_mail(&self) -> bool {
