@@ -141,25 +141,6 @@ async fn forget_password(address: String) {
     let _ = tokio::task::spawn_blocking(move || keyring::Entry::new(KEYRING_SERVICE, &address).and_then(|e| e.delete_credential())).await;
 }
 
-/// True when the name Microsoft signed the user in with shows that the mailbox is not the
-/// one at the typed address. The two differ honestly in one case only: a Microsoft account
-/// made with an address from elsewhere, whose mailbox Microsoft names
-/// outlook_ and sixteen hexadecimal digits, at outlook.com.
-fn other_mailbox(typed: &str, signed_in: &str) -> bool {
-    if typed.eq_ignore_ascii_case(signed_in) {
-        return false;
-    }
-    let typed = typed.to_lowercase();
-    let made_by_microsoft = typed
-        .strip_suffix("@outlook.com")
-        .and_then(|name| name.strip_prefix("outlook_"))
-        .is_some_and(|digits| digits.len() == 16 && digits.bytes().all(|b| b.is_ascii_hexdigit()));
-    // Someone who signs in with an Outlook address has the mailbox at that address.
-    let domain = signed_in.rsplit('@').next().unwrap_or("").to_lowercase();
-    let at_microsoft = domain == "msn.com" || ["outlook", "hotmail", "live"].contains(&domain.split('.').next().unwrap_or(""));
-    !made_by_microsoft || at_microsoft
-}
-
 /// The key of the encrypted database, kept in the system keyring.
 /// Made on first use; never recreated when a database already depends on it.
 pub fn database_key(database: &std::path::Path) -> std::result::Result<String, String> {
@@ -1194,15 +1175,14 @@ async fn oauth_sign_in(app: AppHandle, state: State<'_, AppState>, provider: Pro
         Provider::Microsoft => "Microsoft did not return a refresh token. Try again.".into(),
     }))?;
 
-    // Microsoft's mail server knows the mailbox by the name the user signed in with, which
-    // is not always the address typed here.
+    // The name Microsoft signed the user in with; it must be the address typed here.
     let user = match provider {
         Provider::Microsoft => tokens.signed_in_as().unwrap_or_else(|| address.clone()),
         Provider::Google => address.clone(),
     };
     // Picking another account in the browser would put that account's mail under the typed address.
-    if provider == Provider::Microsoft && other_mailbox(&address, &user) {
-        return Err(Error(format!("You signed in to Microsoft as {user}, not as {address}. Nothing was added. Add the account again with {user} as its address, or choose {address} in the browser.")));
+    if user != address {
+        return Err(Error(format!("You signed in to Microsoft as {user}, not as {address}. Nothing was added. Type the address you sign in to Microsoft with, or choose {address} in the browser.")));
     }
     let server = |host: &str, port: u16, security: Security| ServerSettings { host: host.into(), port, security, username: user.clone() };
     let (imap, smtp) = match provider {
@@ -1575,21 +1555,6 @@ async fn open_attachment(app: AppHandle, state: State<'_, AppState>, id: i64, in
 
 #[cfg(test)]
 mod tests {
-
-    #[test]
-    fn signing_in_to_another_microsoft_account_is_noticed() {
-        use super::other_mailbox;
-        assert!(!other_mailbox("katy@outlook.com", "Katy@Outlook.com"));
-        // A Microsoft account made with a Gmail address: its mailbox has an outlook.com address of its own.
-        assert!(!other_mailbox("outlook_553e00adc7e559f6@outlook.com", "katy@gmail.com"));
-        assert!(other_mailbox("katy@outlook.com", "tom@outlook.com"));
-        assert!(other_mailbox("katy@outlook.com", "tom@hotmail.co.uk"));
-        assert!(other_mailbox("katy@example.org", "tom@example.org"));
-        assert!(other_mailbox("katy@example.org", "tom@gmail.com"));
-        assert!(other_mailbox("katy@outlook.com", "tom@gmail.com"), "an address of one's own choosing is signed in with itself");
-        assert!(other_mailbox("outlook_553e00adc7e559f6@outlook.com", "tom@hotmail.com"));
-        assert!(other_mailbox("outlook_notdigits@outlook.com", "tom@gmail.com"));
-    }
     use super::{is_public, parse_desktop_font, unsubscribe_mail, web_link, OPENABLE};
     use crate::model::{AccountSettings, Provider, Security, ServerSettings};
 
