@@ -14,6 +14,7 @@ OpenWren keeps your mail on your computer. This page lists every network request
 |---|---|---|
 | Mail sync and sending (IMAP and SMTP) | Whenever the app syncs or you send mail | Your mail servers |
 | Google sign-in | Only if you choose to sign in with Google, and once more when you remove that account, to cancel its access | Google |
+| Microsoft sign-in | Only if you add an Outlook account, and about once an hour while it is in use, to renew its access | Microsoft |
 | Remote images | Only when you click "Show images" on a message | The servers the message points to |
 | Unsubscribe | Only when you confirm that you want to unsubscribe from a mailing | The mailing's sender |
 | Anonymous usage request | Once a day, only if you chose to be counted | `stats.openwren.app` |
@@ -21,6 +22,17 @@ OpenWren keeps your mail on your computer. This page lists every network request
 | Installing an update | Only when you click "Install and restart" (AppImage, Windows, macOS) | `packages.openwren.app` |
 
 There are no others. Sender logos for well-known companies are bundled with the app and are not fetched online.
+
+## Google and Microsoft account data
+
+When you sign in with Google or Microsoft, OpenWren asks for access to your mail so that it can show, search, send and organise it for you, as a mail program does.
+
+- Your mail goes straight from Google's or Microsoft's servers to your computer. It never passes through a server of OpenWren, and OpenWren's developer cannot see it.
+- Mail is stored in the encrypted database on your computer. The sign-in token is kept in your system's password store.
+- OpenWren does not sell this data, share it with anyone, use it for advertising, or use it to train AI models. No person reads it.
+- Remove the account in OpenWren to delete its mail and token from your computer. You can also withdraw access at any time in your Google account under "Third-party access", or in your Microsoft account under apps with access.
+
+OpenWren's use of information received from Google APIs adheres to the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.
 
 ## Looking for a new version
 

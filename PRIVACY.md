@@ -20,6 +20,17 @@ Nothing else. No analytics library, no crash reporter.
 
 **Looking for a new version** downloads one small public file, `latest.json`, that says which version is the newest. The request carries nothing about you or your computer: no identifier, not even the version you have. Switch it off in **Settings → Privacy → Look for new versions**. An update the app installs itself must carry a signature made with the OpenWren update key, or it is refused.
 
+## Google and Microsoft account data
+
+When you sign in with Google or Microsoft, OpenWren asks for access to your mail so that it can show, search, send and organise it for you, as a mail program does.
+
+- Your mail goes straight from Google's or Microsoft's servers to your computer. It never passes through a server of OpenWren, and OpenWren's developer cannot see it.
+- Mail is stored in the encrypted database on your computer. The sign-in token is kept in your system's password store.
+- OpenWren does not sell this data, share it with anyone, use it for advertising, or use it to train AI models. No person reads it.
+- Remove the account in OpenWren to delete its mail and token from your computer. You can also withdraw access at any time in your Google account under "Third-party access", or in your Microsoft account under apps with access.
+
+OpenWren's use of information received from Google APIs adheres to the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.
+
 ## The anonymous usage count
 
 Once a day the app tells the project that one more copy is in use, so we know how many people rely on it; that is what motivates the maintainer to keep the code maintained in the long term. It is sent only if you choose to: the welcome screen asks, with neither answer picked in advance. Until you say yes, nothing is sent. An installation set up before version 0.1.12 keeps the setting it had then: on, unless it was switched off. Change your answer in **Settings → Privacy → Anonymous usage count**.
