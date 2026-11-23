@@ -8,6 +8,7 @@ OpenWren keeps your mail on your computer. There is no OpenWren account and no O
 |---|---|---|
 | Reading and sending mail | Always, for the accounts you add | Your own mail servers (IMAP and SMTP) |
 | Google sign-in | Only if you choose "Sign in with Google", and once more when you remove that account, to cancel its access | Google |
+| Microsoft sign-in | Only if you add an Outlook account, and about once an hour while it is in use, to renew its access | Microsoft |
 | Remote images in a message | Only when you click "Show images", or for senders you chose to always allow | The server named in the message |
 | Unsubscribe | Only when you confirm "Unsubscribe" on a mailing | The sender's unsubscribe address |
 | Opening a link | When you click one | Your browser opens it |
@@ -51,7 +52,7 @@ Email addresses, names, subjects, mail text, attachments, contacts, folder names
 ## Where your data lives
 
 - Mail, search index, drafts, settings: an encrypted database in `~/.local/share/org.openwren.app/`.
-- Passwords, Google tokens and the database key: the system keyring.
+- Passwords, Google and Microsoft tokens and the database key: the system keyring.
 - Attachments you open: a temporary folder, emptied after 30 minutes and when OpenWren quits.
 
 Removing an account in Settings deletes its local mail and its saved password. Nothing changes on the server.

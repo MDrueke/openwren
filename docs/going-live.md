@@ -62,7 +62,7 @@ Today Gmail works for everyone through an app password. One-click "Sign in with 
 1. Website live on `openwren.app` with the privacy page, and the domain verified in Google Search Console.
 2. In Google Cloud: OAuth consent screen set to External and In production, with app name, logo, home page, privacy policy and the scope `https://mail.google.com/`.
 3. Submit for verification: a written justification for the scope and a demo video of the sign-in and of how mail data is used.
-4. Pass the yearly security assessment Google requires for restricted scopes (a paid review by an approved lab).
+4. The yearly paid security assessment applies to apps that can reach the mail "from or through a third-party server". OpenWren has none, so say so in the submission and get the reviewer's answer in writing. See [sign-in-plan.md](sign-in-plan.md).
 5. Build official packages with the approved client ID set at build time, so forks do not ship it.
 
 Until approval, a project in "Testing" allows at most 100 named test users and their sign-in expires every week.

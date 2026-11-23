@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isOnThisComputer, isProtonAddress, protonBridge } from "./servers";
+import { isMicrosoftAddress, isOnThisComputer, isProtonAddress, protonBridge } from "./servers";
 
 describe("isOnThisComputer", () => {
   it("accepts loopback names and addresses", () => {
@@ -26,5 +26,14 @@ describe("isProtonAddress", () => {
   });
   it("ignores other addresses", () => {
     for (const a of ["me@gmail.com", "me@notproton.me", "proton.me", ""]) expect(isProtonAddress(a), a).toBe(false);
+  });
+});
+
+describe("isMicrosoftAddress", () => {
+  it("knows Microsoft's own mail domains", () => {
+    for (const a of ["me@outlook.com", "me@Hotmail.com", "me@live.co.uk", "me@outlook.de", "me@msn.com"]) expect(isMicrosoftAddress(a), a).toBe(true);
+  });
+  it("ignores other addresses", () => {
+    for (const a of ["me@gmail.com", "me@notoutlook.com", "me@outlook.evil.example.org.", "outlook.com", ""]) expect(isMicrosoftAddress(a), a).toBe(false);
   });
 });

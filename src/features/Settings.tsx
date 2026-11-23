@@ -147,7 +147,7 @@ function Accounts() {
           <div className={`min-w-0 flex-1 ${accounts.length > 1 ? "" : "pl-1.5"}`}>
             <div className="selectable truncate">{a.address}</div>
             <div className="truncate text-xs text-ink2">
-              {a.kind === "gmail" ? "Google" : "IMAP"}
+              {a.kind === "gmail" ? "Google" : a.kind === "outlook" ? "Outlook" : "IMAP"}
               {progress[a.id] && ` · ${statusText(progress[a.id])}`}
             </div>
             <div className="truncate text-xs text-ink2" title="Senders are confirmed only by this server's checks. It is learned from nearly all of the account's mail, or known for Gmail.">
@@ -197,6 +197,15 @@ function Accounts() {
         Client secret
       </label>
       <input id="g-secret" type="password" className={fieldBox} value={settings.google_client_secret ?? ""} autoComplete="off" onChange={(e) => void setSetting("google_client_secret", e.target.value)} />
+
+      <h3 className="mt-6 mb-1 font-semibold">Microsoft sign-in</h3>
+      <p className="mb-2 text-[13px] text-ink2">
+        OpenWren's own packages sign in to Outlook without this. To use your own app registration from Microsoft Entra instead, or in a copy you built yourself, paste its application (client) ID here.
+      </p>
+      <label className={fieldCaption} htmlFor="ms-id">
+        Client ID
+      </label>
+      <input id="ms-id" className={fieldBox} value={settings.microsoft_client_id ?? ""} placeholder="00000000-0000-0000-0000-000000000000" autoComplete="off" onChange={(e) => void setSetting("microsoft_client_id", e.target.value)} />
     </>
   );
 }

@@ -1,7 +1,7 @@
-//! Google sign-in for desktop apps: OAuth 2 with PKCE and a loopback redirect.
+//! Sign-in with Google or Microsoft for desktop apps: OAuth 2 with PKCE and a loopback redirect.
 //!
-//! The browser does the sign-in. Google then redirects to a temporary port on
-//! 127.0.0.1 where we pick up a one-time code and exchange it for tokens.
+//! The browser does the sign-in. The provider then redirects to a temporary port on
+//! this computer where we pick up a one-time code and exchange it for tokens.
 //! The refresh token goes to the system keyring; access tokens live in memory.
 
 use std::time::Duration;
@@ -10,29 +10,58 @@ use base64::Engine;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 
 use crate::error::{Error, Result};
+use crate::model::Provider;
 
 /// Full access to Gmail over IMAP and SMTP.
 pub const GMAIL_SCOPE: &str = "https://mail.google.com/";
+/// Outlook over IMAP and SMTP, and a refresh token to stay signed in.
+pub const OUTLOOK_SCOPE: &str = "https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/SMTP.Send offline_access";
 
 #[derive(Debug, Clone)]
 pub struct Config {
+    pub provider: Provider,
     pub client_id: String,
     /// Google issues a "secret" for desktop clients too; it is not confidential.
+    /// Empty for Microsoft, which has none for desktop apps.
     pub client_secret: String,
     pub auth_url: String,
     pub token_url: String,
+    pub scope: String,
+    /// Further parameters of the address opened in the browser.
+    pub extra: &'static [(&'static str, &'static str)],
+    /// The host in the redirect address. Google wants the loopback IP. Microsoft accepts
+    /// any port only for "localhost".
+    pub redirect_host: &'static str,
 }
 
 impl Config {
     pub fn google(client_id: String, client_secret: String) -> Config {
         Config {
+            provider: Provider::Google,
             client_id,
             client_secret,
             auth_url: "https://accounts.google.com/o/oauth2/v2/auth".into(),
             token_url: "https://oauth2.googleapis.com/token".into(),
+            scope: GMAIL_SCOPE.into(),
+            extra: &[("access_type", "offline"), ("prompt", "consent")],
+            redirect_host: "127.0.0.1",
+        }
+    }
+
+    /// Work, school and personal Microsoft accounts.
+    pub fn microsoft(client_id: String) -> Config {
+        Config {
+            provider: Provider::Microsoft,
+            client_id,
+            client_secret: String::new(),
+            auth_url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize".into(),
+            token_url: "https://login.microsoftonline.com/common/oauth2/v2.0/token".into(),
+            scope: OUTLOOK_SCOPE.into(),
+            extra: &[],
+            redirect_host: "localhost",
         }
     }
 }
@@ -40,11 +69,51 @@ impl Config {
 #[derive(Debug, Deserialize)]
 pub struct Tokens {
     pub access_token: String,
+    /// Google sends one at sign-in only. Microsoft sends a new one with every refresh.
     #[serde(default)]
     pub refresh_token: Option<String>,
     /// Seconds until the access token expires.
     #[serde(default)]
     pub expires_in: i64,
+}
+
+/// The temporary port on this computer that the browser comes back to.
+pub struct Loopback {
+    listeners: Vec<TcpListener>,
+    pub redirect_uri: String,
+}
+
+impl Loopback {
+    pub async fn bind(config: &Config) -> Result<Loopback> {
+        let first = TcpListener::bind("127.0.0.1:0").await?;
+        let port = first.local_addr()?.port();
+        let mut listeners = vec![first];
+        // A browser may take "localhost" to mean the IPv6 loopback address.
+        if config.redirect_host == "localhost" {
+            if let Ok(second) = TcpListener::bind(("::1", port)).await {
+                listeners.push(second);
+            }
+        }
+        Ok(Loopback { listeners, redirect_uri: format!("http://{}:{port}", config.redirect_host) })
+    }
+
+    async fn accept(&self) -> std::io::Result<TcpStream> {
+        match self.listeners.as_slice() {
+            [one] => Ok(one.accept().await?.0),
+            [a, b, ..] => tokio::select! {
+                stream = a.accept() => Ok(stream?.0),
+                stream = b.accept() => Ok(stream?.0),
+            },
+            [] => std::future::pending().await,
+        }
+    }
+}
+
+impl From<TcpListener> for Loopback {
+    fn from(listener: TcpListener) -> Loopback {
+        let port = listener.local_addr().map(|a| a.port()).unwrap_or(0);
+        Loopback { listeners: vec![listener], redirect_uri: format!("http://127.0.0.1:{port}") }
+    }
 }
 
 fn url_safe(bytes: &[u8]) -> String {
@@ -64,30 +133,25 @@ pub fn challenge_for(verifier: &str) -> String {
 
 /// The address to open in the browser.
 pub fn authorize_url(config: &Config, redirect_uri: &str, challenge: &str, state: &str, address: &str) -> Result<String> {
-    let url = reqwest::Url::parse_with_params(
-        &config.auth_url,
-        &[
-            ("client_id", config.client_id.as_str()),
-            ("redirect_uri", redirect_uri),
-            ("response_type", "code"),
-            ("scope", GMAIL_SCOPE),
-            ("code_challenge", challenge),
-            ("code_challenge_method", "S256"),
-            ("state", state),
-            ("login_hint", address),
-            ("access_type", "offline"),
-            ("prompt", "consent"),
-        ],
-    )?;
-    Ok(url.to_string())
+    let mut params = vec![
+        ("client_id", config.client_id.as_str()),
+        ("redirect_uri", redirect_uri),
+        ("response_type", "code"),
+        ("scope", config.scope.as_str()),
+        ("code_challenge", challenge),
+        ("code_challenge_method", "S256"),
+        ("state", state),
+        ("login_hint", address),
+    ];
+    params.extend_from_slice(config.extra);
+    Ok(reqwest::Url::parse_with_params(&config.auth_url, &params)?.to_string())
 }
 
 /// Wait for the browser to come back to our loopback port and return the code.
-pub async fn wait_for_code(listener: TcpListener, expected_state: &str, timeout: Duration) -> Result<String> {
+pub async fn wait_for_code(loopback: Loopback, expected_state: &str, timeout: Duration) -> Result<String> {
     let accept = async {
         loop {
-            let (stream, _) = listener.accept().await?;
-            let mut stream = BufReader::new(stream);
+            let mut stream = BufReader::new(loopback.accept().await?);
             let mut request_line = String::new();
             stream.read_line(&mut request_line).await?;
             // "GET /?code=...&state=... HTTP/1.1"
@@ -95,7 +159,7 @@ pub async fn wait_for_code(listener: TcpListener, expected_state: &str, timeout:
             let url = reqwest::Url::parse(&format!("http://127.0.0.1{path}"))?;
             let param = |name: &str| url.query_pairs().find(|(k, _)| k == name).map(|(_, v)| v.to_string());
             let outcome = match (param("code"), param("state"), param("error")) {
-                (_, _, Some(error)) => Some(Err(Error(format!("Google sign-in was not completed: {error}")))),
+                (_, _, Some(error)) => Some(Err(Error(format!("The sign-in was not completed: {error}")))),
                 (Some(code), Some(state), _) if state == expected_state => Some(Ok(code)),
                 (Some(_), _, _) => Some(Err(Error("The sign-in answer did not match this request.".into()))),
                 _ => None, // favicon and other stray requests
@@ -126,40 +190,43 @@ fn http() -> Result<reqwest::Client> {
 }
 
 async fn token_request(config: &Config, form: &[(&str, &str)]) -> Result<Tokens> {
-    let response = http()?.post(&config.token_url).form(form).send().await?;
+    let mut form = form.to_vec();
+    form.push(("client_id", config.client_id.as_str()));
+    if !config.client_secret.is_empty() {
+        form.push(("client_secret", config.client_secret.as_str()));
+    }
+    let response = http()?.post(&config.token_url).form(&form).send().await?;
     if !response.status().is_success() {
         let status = response.status();
         let detail = response.text().await.unwrap_or_default();
-        return Err(Error(format!("Google refused the sign-in ({status}): {}", detail.chars().take(300).collect::<String>())));
+        let name = config.provider.name();
+        // The saved sign-in was cancelled: a changed password, access removed, or months without use.
+        if detail.contains("invalid_grant") && form.contains(&("grant_type", "refresh_token")) {
+            return Err(Error(format!("{name} no longer accepts the saved sign-in for this account. Remove the account and add it again.")));
+        }
+        return Err(Error(format!("{name} refused the sign-in ({status}): {}", detail.chars().take(300).collect::<String>())));
     }
     Ok(response.json().await?)
 }
 
 pub async fn exchange_code(config: &Config, code: &str, verifier: &str, redirect_uri: &str) -> Result<Tokens> {
-    let form = [
-        ("client_id", config.client_id.as_str()),
-        ("client_secret", config.client_secret.as_str()),
-        ("code", code),
-        ("code_verifier", verifier),
-        ("grant_type", "authorization_code"),
-        ("redirect_uri", redirect_uri),
-    ];
+    let form = [("code", code), ("code_verifier", verifier), ("grant_type", "authorization_code"), ("redirect_uri", redirect_uri)];
     token_request(config, &form).await
 }
 
 pub async fn refresh(config: &Config, refresh_token: &str) -> Result<Tokens> {
-    let form = [
-        ("client_id", config.client_id.as_str()),
-        ("client_secret", config.client_secret.as_str()),
-        ("refresh_token", refresh_token),
-        ("grant_type", "refresh_token"),
-    ];
+    // Microsoft wants the scope again here; Google ignores it.
+    let form = [("refresh_token", refresh_token), ("grant_type", "refresh_token"), ("scope", config.scope.as_str())];
     token_request(config, &form).await
 }
 
-/// Ask Google to cancel a token, so it stops working for good. Used when a Google
-/// account is removed: deleting the keyring copy alone leaves the token valid at Google.
-pub async fn revoke(token: &str) -> Result<()> {
+/// Ask the provider to cancel a token, so it stops working for good. Used when an
+/// account is removed: deleting the keyring copy alone leaves the token valid.
+/// Only Google offers this; for Microsoft nothing is sent.
+pub async fn revoke(provider: Provider, token: &str) -> Result<()> {
+    if provider != Provider::Google {
+        return Ok(());
+    }
     let response = http()?.post("https://oauth2.googleapis.com/revoke").form(&[("token", token)]).send().await?;
     if !response.status().is_success() {
         return Err(Error(format!("Google did not revoke the sign-in ({}).", response.status())));
@@ -177,7 +244,7 @@ mod tests {
     use super::*;
 
     fn config(token_url: String) -> Config {
-        Config { client_id: "client-123".into(), client_secret: "secret".into(), auth_url: "https://accounts.google.com/o/oauth2/v2/auth".into(), token_url }
+        Config { token_url, ..Config::google("client-123".into(), "secret".into()) }
     }
 
     #[test]
@@ -213,7 +280,7 @@ mod tests {
     async fn loopback_accepts_only_the_matching_state() {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
-        let waiting = tokio::spawn(async move { wait_for_code(listener, "good", Duration::from_secs(5)).await });
+        let waiting = tokio::spawn(async move { wait_for_code(listener.into(), "good", Duration::from_secs(5)).await });
         get(port, "/favicon.ico").await; // ignored
         let page = get(port, "/?state=good&code=4%2Fabc").await;
         assert!(page.contains("Signed in"));
@@ -221,9 +288,42 @@ mod tests {
 
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
-        let waiting = tokio::spawn(async move { wait_for_code(listener, "good", Duration::from_secs(5)).await });
+        let waiting = tokio::spawn(async move { wait_for_code(listener.into(), "good", Duration::from_secs(5)).await });
         get(port, "/?state=forged&code=x").await;
         assert!(waiting.await.unwrap().is_err());
+    }
+
+    #[test]
+    fn authorize_url_carries_everything_microsoft_needs() {
+        let url = authorize_url(&Config::microsoft("app-1".into()), "http://localhost:4000", "chal", "st8", "katy@outlook.com").unwrap();
+        assert!(url.starts_with("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?"));
+        for part in ["client_id=app-1", "redirect_uri=http%3A%2F%2Flocalhost%3A4000", "code_challenge=chal", "IMAP.AccessAsUser.All", "SMTP.Send", "offline_access", "login_hint=katy%40outlook.com"] {
+            assert!(url.contains(part), "{part} missing in {url}");
+        }
+        assert!(!url.contains("access_type"), "a Google-only parameter");
+    }
+
+    #[tokio::test]
+    async fn microsoft_comes_back_to_localhost_on_either_loopback_address() {
+        let loopback = Loopback::bind(&Config::microsoft("app-1".into())).await.unwrap();
+        let port: u16 = loopback.redirect_uri.strip_prefix("http://localhost:").expect("localhost, so any port matches").parse().unwrap();
+        let waiting = tokio::spawn(async move { wait_for_code(loopback, "good", Duration::from_secs(5)).await });
+        assert!(get(port, "/?state=good&code=M.abc").await.contains("Signed in"));
+        assert_eq!(waiting.await.unwrap().unwrap(), "M.abc");
+
+        let google = Loopback::bind(&Config::google("id".into(), String::new())).await.unwrap();
+        assert!(google.redirect_uri.starts_with("http://127.0.0.1:"));
+    }
+
+    #[tokio::test]
+    async fn a_client_without_a_secret_sends_none() {
+        let (url, server) = fake_token_server().await;
+        let config = Config { token_url: url, ..Config::microsoft("app-1".into()) };
+        let tokens = refresh(&config, "old-refresh").await.unwrap();
+        assert_eq!(tokens.refresh_token.as_deref(), Some("1//refresh"), "the rotated token is handed back");
+        let request = server.await.unwrap();
+        assert!(request.contains("grant_type=refresh_token") && request.contains("refresh_token=old-refresh") && request.contains("client_id=app-1"));
+        assert!(!request.contains("client_secret"), "{request}");
     }
 
     /// A stand-in token endpoint: records the request and answers like Google does.

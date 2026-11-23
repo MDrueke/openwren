@@ -113,7 +113,7 @@ pub struct AppState {
     tray: std::sync::atomic::AtomicBool,
     /// A newer version, once the daily check has found one.
     update: Mutex<Option<updates::Available>>,
-    /// Google access tokens per account, with their expiry (Unix seconds).
+    /// OAuth access tokens per account, with their expiry (Unix seconds).
     tokens: Mutex<HashMap<i64, (String, i64)>>,
 }
 
@@ -157,31 +157,60 @@ pub fn database_key(database: &std::path::Path) -> std::result::Result<String, S
     }
 }
 
-fn google_config(db: &Db) -> Result<oauth::Config> {
+/// A client ID built into official packages. Other builds have none, and the user enters their own.
+fn built_in(value: Option<&'static str>) -> Option<String> {
+    value.map(str::trim).filter(|v| !v.is_empty()).map(String::from)
+}
+
+/// What OpenWren signs in to a provider with: the client ID entered in Settings, or else the built-in one.
+fn oauth_config(db: &Db, provider: Provider) -> Result<oauth::Config> {
     let conn = db::lock(db);
-    let id = db::get_setting(&conn, "google_client_id")?.filter(|v| !v.trim().is_empty());
-    let secret = db::get_setting(&conn, "google_client_secret")?.unwrap_or_default();
-    match id {
-        Some(id) => Ok(oauth::Config::google(id.trim().to_string(), secret.trim().to_string())),
-        None => Err(Error("Enter your Google client ID in Settings, under Accounts, first.".into())),
+    let setting = |key: &str| -> Result<Option<String>> { Ok(db::get_setting(&conn, key)?.map(|v| v.trim().to_string()).filter(|v| !v.is_empty())) };
+    match provider {
+        Provider::Google => {
+            let (id, secret) = match setting("google_client_id")? {
+                Some(id) => (id, setting("google_client_secret")?.unwrap_or_default()),
+                None => (
+                    built_in(option_env!("OPENWREN_GOOGLE_CLIENT_ID")).ok_or(Error("Enter your Google client ID in Settings, under Accounts, first.".into()))?,
+                    built_in(option_env!("OPENWREN_GOOGLE_CLIENT_SECRET")).unwrap_or_default(),
+                ),
+            };
+            Ok(oauth::Config::google(id, secret))
+        }
+        Provider::Microsoft => {
+            let id = setting("microsoft_client_id")?
+                .or_else(|| built_in(option_env!("OPENWREN_MICROSOFT_CLIENT_ID")))
+                .ok_or(Error("This copy of OpenWren has no Microsoft client ID. Enter one in Settings, under Accounts, first.".into()))?;
+            Ok(oauth::Config::microsoft(id))
+        }
     }
 }
 
+/// The providers whose browser sign-in can be used right now.
+#[tauri::command]
+fn sign_in_providers(state: State<'_, AppState>) -> Vec<Provider> {
+    [Provider::Google, Provider::Microsoft].into_iter().filter(|p| oauth_config(&state.db, *p).is_ok()).collect()
+}
+
 /// The account's address, settings and a secret that works right now:
-/// its password, or a fresh Google access token.
+/// its password, or a fresh access token.
 async fn account_secret(state: &AppState, account_id: i64) -> Result<(String, AccountSettings, Secret)> {
     let (address, settings) = db::account_settings(&db::lock(&state.db), account_id)?;
     let stored = load_password(address.clone()).await?;
-    if !settings.oauth {
+    let Some(provider) = settings.provider() else {
         return Ok((address, settings, Secret::Password(stored)));
-    }
+    };
     if let Some((token, expires)) = state.tokens.lock().unwrap().get(&account_id).cloned() {
         if expires > now() + 60 {
             return Ok((address, settings, Secret::OAuthToken(token)));
         }
     }
-    // For Google accounts the keyring holds the refresh token.
-    let tokens = oauth::refresh(&google_config(&state.db)?, &stored).await?;
+    // For these accounts the keyring holds the refresh token.
+    let tokens = oauth::refresh(&oauth_config(&state.db, provider)?, &stored).await?;
+    // Microsoft replaces the refresh token each time it is used. Keep the new one.
+    if let Some(next) = tokens.refresh_token.filter(|next| *next != stored) {
+        save_password(address.clone(), next).await?;
+    }
     state.tokens.lock().unwrap().insert(account_id, (tokens.access_token.clone(), now() + tokens.expires_in));
     Ok((address, settings, Secret::OAuthToken(tokens.access_token)))
 }
@@ -811,7 +840,7 @@ async fn add_account(app: AppHandle, state: State<'_, AppState>, account: NewAcc
         smtp::check(smtp, &smtp::Secret::Password(account.password.clone())).await?;
     }
     save_password(address.clone(), account.password.clone()).await?;
-    let settings = AccountSettings { imap: Some(imap), smtp: account.smtp.clone(), oauth: false };
+    let settings = AccountSettings { imap: Some(imap), smtp: account.smtp.clone(), ..Default::default() };
     let kind = if settings.is_gmail() { "gmail" } else { "imap" };
     let id = db::insert_account(&db::lock(&state.db), &address, account.display_name.trim(), kind, &settings)?;
     return_session(&state, id, session).await;
@@ -827,9 +856,10 @@ async fn remove_account(app: AppHandle, state: State<'_, AppState>, id: i64) -> 
     state.interactive.lock().await.remove(&id);
     // A Google account's refresh token stays valid at Google until it is revoked. Ask
     // Google to cancel it before the keyring copy goes; a failure does not stop the removal.
-    if settings.oauth {
+    // Microsoft has no such request.
+    if let Some(provider) = settings.provider() {
         if let Ok(token) = load_password(address.clone()).await {
-            let _ = oauth::revoke(&token).await;
+            let _ = oauth::revoke(provider, &token).await;
         }
     }
     // A large mailbox takes a while to delete. It goes in steps on a thread of its own, so the
@@ -955,8 +985,8 @@ async fn deliver(state: &AppState, item: &db::Queued) -> Result<Option<String>> 
         }
     }
     let sent = db::folder_by_role(&db::lock(&state.db), item.account_id, "sent")?;
-    // Gmail files its own copy of sent mail; adding one would duplicate it.
-    if let (Some((_, path)), true) = (sent, settings.imap.is_some() && !settings.is_gmail()) {
+    // Gmail and Outlook file their own copy of sent mail; adding one would duplicate it.
+    if let (Some((_, path)), true) = (sent, settings.imap.is_some() && !settings.files_sent_mail()) {
         if let Err(e) = save_sent_copy(state, item.account_id, &path, &item.raw).await {
             return Ok(Some(e.0));
         }
@@ -1098,40 +1128,50 @@ fn add_tray_icon(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
-// ---------- Google sign-in ----------
+// ---------- browser sign-in ----------
 
-/// Sign in to Gmail in the system browser and add the account.
+/// Sign in to Gmail or Outlook in the system browser and add the account.
 #[tauri::command]
-async fn google_sign_in(app: AppHandle, state: State<'_, AppState>, address: String, display_name: String) -> Result<Account> {
+async fn oauth_sign_in(app: AppHandle, state: State<'_, AppState>, provider: Provider, address: String, display_name: String) -> Result<Account> {
     use tauri_plugin_opener::OpenerExt;
     let address = address.trim().to_lowercase();
     if !address.contains('@') {
-        return Err(Error("Enter your full Gmail address.".into()));
+        return Err(Error("Enter your full email address.".into()));
     }
     if db::list_accounts(&db::lock(&state.db))?.iter().any(|a| a.address == address) {
         return Err(Error("That account is already added.".into()));
     }
-    let config = google_config(&state.db)?;
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
-    let redirect = format!("http://127.0.0.1:{}", listener.local_addr()?.port());
+    let config = oauth_config(&state.db, provider)?;
+    let loopback = oauth::Loopback::bind(&config).await?;
+    let redirect = loopback.redirect_uri.clone();
     let verifier = oauth::random_token()?;
     let csrf = oauth::random_token()?;
     let url = oauth::authorize_url(&config, &redirect, &oauth::challenge_for(&verifier), &csrf, &address)?;
     app.opener().open_url(url, None::<&str>).map_err(|e| Error(format!("Could not open the browser: {e}")))?;
-    let code = oauth::wait_for_code(listener, &csrf, Duration::from_secs(300)).await?;
+    let code = oauth::wait_for_code(loopback, &csrf, Duration::from_secs(300)).await?;
     let tokens = oauth::exchange_code(&config, &code, &verifier, &redirect).await?;
-    let refresh = tokens.refresh_token.ok_or(Error("Google did not return a refresh token. Remove OpenWren under \"Third-party access\" in your Google account and try again.".into()))?;
+    let refresh = tokens.refresh_token.ok_or(Error(match provider {
+        Provider::Google => "Google did not return a refresh token. Remove OpenWren under \"Third-party access\" in your Google account and try again.".into(),
+        Provider::Microsoft => "Microsoft did not return a refresh token. Try again.".into(),
+    }))?;
 
-    let server = |host: &str, port: u16| ServerSettings { host: host.into(), port, security: Security::Tls, username: address.clone() };
-    let imap = server("imap.gmail.com", 993);
-    let session = imap::connect_with(&imap, &Secret::OAuthToken(tokens.access_token.clone())).await?;
+    let server = |host: &str, port: u16, security: Security| ServerSettings { host: host.into(), port, security, username: address.clone() };
+    let (kind, imap, smtp) = match provider {
+        Provider::Google => ("gmail", server("imap.gmail.com", 993, Security::Tls), server("smtp.gmail.com", 465, Security::Tls)),
+        Provider::Microsoft => ("outlook", server("outlook.office365.com", 993, Security::Tls), server("smtp.office365.com", 587, Security::Starttls)),
+    };
+    let session = imap::connect_with(&imap, &Secret::OAuthToken(tokens.access_token.clone())).await.map_err(|e| match provider {
+        // The browser may be signed in to another account than the address typed here.
+        Provider::Microsoft => Error(format!("{} Check that you signed in to Microsoft as {address}.", e.0)),
+        Provider::Google => e,
+    })?;
     save_password(address.clone(), refresh).await?;
-    let settings = AccountSettings { imap: Some(imap), smtp: Some(server("smtp.gmail.com", 465)), oauth: true };
-    let id = db::insert_account(&db::lock(&state.db), &address, display_name.trim(), "gmail", &settings)?;
+    let settings = AccountSettings { imap: Some(imap), smtp: Some(smtp), oauth: true, provider: Some(provider) };
+    let id = db::insert_account(&db::lock(&state.db), &address, display_name.trim(), kind, &settings)?;
     state.tokens.lock().unwrap().insert(id, (tokens.access_token, now() + tokens.expires_in));
     return_session(&state, id, session).await;
     spawn_account(app, id);
-    Ok(Account { id, address, display_name: display_name.trim().to_string(), kind: "gmail".into(), auth_server: None })
+    Ok(Account { id, address, display_name: display_name.trim().to_string(), kind: kind.into(), auth_server: None })
 }
 
 // ---------- settings, rules, files ----------
@@ -1480,7 +1520,7 @@ async fn open_attachment(app: AppHandle, state: State<'_, AppState>, id: i64, in
 #[cfg(test)]
 mod tests {
     use super::{is_public, parse_desktop_font, unsubscribe_mail, web_link, OPENABLE};
-    use crate::model::{AccountSettings, Security, ServerSettings};
+    use crate::model::{AccountSettings, Provider, Security, ServerSettings};
 
     #[test]
     fn only_web_links_go_to_the_browser() {
@@ -1569,6 +1609,19 @@ mod tests {
         assert!(!on("imap.fastmail.com").is_gmail());
         assert!(!on("imap.gmail.com.evil.example").is_gmail());
         assert!(AccountSettings { oauth: true, ..on("imap.example.org") }.is_gmail(), "Google sign-in");
+        // An account saved before Microsoft sign-in existed has no provider and is Google's.
+        let old: AccountSettings = serde_json::from_str(r#"{"oauth":true}"#).unwrap();
+        assert_eq!(old.provider(), Some(Provider::Google));
+        assert!(old.is_gmail() && old.files_sent_mail());
+    }
+
+    #[test]
+    fn an_outlook_account_is_not_taken_for_gmail() {
+        let outlook = AccountSettings { oauth: true, provider: Some(Provider::Microsoft), ..Default::default() };
+        assert_eq!(serde_json::from_str::<AccountSettings>(&serde_json::to_string(&outlook).unwrap()).unwrap().provider(), Some(Provider::Microsoft));
+        assert!(!outlook.is_gmail(), "its mail is not confirmed by Google's server");
+        assert!(outlook.files_sent_mail(), "Microsoft files the sent copy itself");
+        assert_eq!(AccountSettings::default().provider(), None, "a password account");
     }
 
     #[test]
@@ -1702,7 +1755,8 @@ pub fn run() {
             set_categories,
             snooze,
             search_server,
-            google_sign_in,
+            oauth_sign_in,
+            sign_in_providers,
             get_setting,
             set_setting,
             list_rules,

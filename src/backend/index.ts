@@ -17,6 +17,7 @@ import type {
   SearchFilters,
   SendFailed,
   SignatureDefaults,
+  Provider,
 } from "../types";
 import { sampleBackend } from "./sample";
 
@@ -54,8 +55,10 @@ export interface Backend {
 
   listAccounts(): Promise<Account[]>;
   addAccount(account: NewAccount): Promise<Account>;
-  /** Opens the system browser for Google sign-in, then adds the account. */
-  googleSignIn(address: string, displayName: string): Promise<Account>;
+  /** Opens the system browser to sign in with Google or Microsoft, then adds the account. */
+  oauthSignIn(provider: Provider, address: string, displayName: string): Promise<Account>;
+  /** The providers whose browser sign-in works now: a client ID is built in or entered in Settings. */
+  signInProviders(): Promise<Provider[]>;
   removeAccount(id: number): Promise<void>;
   /** Put the accounts in this order, given as their ids. */
   reorderAccounts(ids: number[]): Promise<void>;
@@ -163,7 +166,8 @@ const tauriBackend: Backend = {
 
   listAccounts: () => invoke("list_accounts"),
   addAccount: (account) => invoke("add_account", { account }),
-  googleSignIn: (address, displayName) => invoke("google_sign_in", { address, displayName }),
+  oauthSignIn: (provider, address, displayName) => invoke("oauth_sign_in", { provider, address, displayName }),
+  signInProviders: () => invoke("sign_in_providers"),
   removeAccount: (id) => invoke("remove_account", { id }),
   reorderAccounts: (ids) => invoke("reorder_accounts", { ids }),
   syncNow: () => invoke("sync_now"),

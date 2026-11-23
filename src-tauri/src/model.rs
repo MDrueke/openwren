@@ -64,9 +64,30 @@ pub struct AccountSettings {
     pub imap: Option<ServerSettings>,
     #[serde(default)]
     pub smtp: Option<ServerSettings>,
-    /// Sign in with a Google OAuth token instead of a password.
+    /// Sign in in the browser (OAuth) instead of with a password.
     #[serde(default)]
     pub oauth: bool,
+    /// Who the browser sign-in is with. Accounts saved before Microsoft sign-in existed
+    /// have none and are Google's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<Provider>,
+}
+
+/// A mail provider with its own browser sign-in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Provider {
+    Google,
+    Microsoft,
+}
+
+impl Provider {
+    pub fn name(self) -> &'static str {
+        match self {
+            Provider::Google => "Google",
+            Provider::Microsoft => "Microsoft",
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -281,7 +302,7 @@ pub struct Progress {
     pub message: String,
 }
 
-/// How an account proves who it is: a password, or a Google OAuth access token.
+/// How an account proves who it is: a password, or an OAuth access token.
 pub enum Secret {
     Password(String),
     OAuthToken(String),
@@ -325,10 +346,20 @@ pub struct Unsubscribe {
 }
 
 impl AccountSettings {
+    /// Who the account signs in with in the browser, or none for a password.
+    pub fn provider(&self) -> Option<Provider> {
+        self.oauth.then(|| self.provider.unwrap_or(Provider::Google))
+    }
+
+    /// True when the provider files a copy of every sent message itself, so none must be added.
+    /// Gmail does, and so does Microsoft for mail sent with its own sign-in.
+    pub fn files_sent_mail(&self) -> bool {
+        self.is_gmail() || self.provider() == Some(Provider::Microsoft)
+    }
+
     /// True for a Gmail mailbox, whether it signs in with Google or with an app password.
-    /// Gmail files a copy of every sent message itself, so none must be added.
     pub fn is_gmail(&self) -> bool {
-        self.oauth || self.imap.as_ref().is_some_and(|imap| matches!(imap.host.trim().to_ascii_lowercase().as_str(), "imap.gmail.com" | "imap.googlemail.com"))
+        self.provider() == Some(Provider::Google) || self.imap.as_ref().is_some_and(|imap| matches!(imap.host.trim().to_ascii_lowercase().as_str(), "imap.gmail.com" | "imap.googlemail.com"))
     }
 }
 
