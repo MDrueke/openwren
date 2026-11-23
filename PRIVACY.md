@@ -67,7 +67,8 @@ OpenWren does not share, transfer, sell or disclose Google user data to anyone.
 - Your mail stays in the database on your computer for as long as the account is added to OpenWren, so that you can read and search it without a connection.
 - To delete it, remove the account in Settings → Accounts. This deletes the local copy of the account's mail and its sign-in token from your computer, and asks Google to cancel the token so that it stops working.
 - You can also withdraw OpenWren's access at any time in your Google account, under [Third-party apps and services](https://myaccount.google.com/connections).
-- Uninstalling OpenWren and deleting its data folder removes everything it stored. On Linux the folder is `~/.local/share/org.openwren.app/`.
+- Before you uninstall OpenWren, remove your accounts in Settings → Accounts, so that their sign-in tokens are deleted and cancelled as described above.
+- Uninstalling OpenWren and deleting its data folder removes the mail it stored. On Linux the folder is `~/.local/share/org.openwren.app/`. The sign-in tokens of accounts you did not remove, and the key of the database, are not in that folder: they stay in your system's password store under the name "OpenWren". Delete those entries there (Passwords and Keys on Linux, Keychain Access on macOS, Credential Manager on Windows), or withdraw OpenWren's access in your Google account as described above.
 - Because the developer never receives your data, there is nothing held elsewhere to delete. For questions about your data, open an issue at [github.com/VinceGHER/openwren/issues](https://github.com/VinceGHER/openwren/issues).
 
 ### Limited Use
@@ -78,7 +79,7 @@ OpenWren does not use Google user data, or data obtained through Google Workspac
 
 ### Changes
 
-If the way OpenWren uses Google user data changes, this page is updated first, and the app asks for your consent again before using the data in a new way. Last updated: 23 November 2026.
+If the way OpenWren uses Google user data changes, this page is updated first, and the app asks for your consent again before using the data in a new way. Last updated: 24 November 2026.
 
 ## Microsoft account data
 

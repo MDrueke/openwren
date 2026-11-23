@@ -342,6 +342,20 @@ mod tests {
         assert!(get(port, "/?state=good&code=M.abc").await.contains("Signed in"));
         assert_eq!(waiting.await.unwrap().unwrap(), "M.abc");
 
+        // The same through the IPv6 loopback address, on computers that have one.
+        let loopback = Loopback::bind(&Config::microsoft("app-1".into())).await.unwrap();
+        if loopback.listeners.len() == 2 {
+            use tokio::io::AsyncReadExt;
+            let port = loopback.listeners[1].local_addr().unwrap().port();
+            let waiting = tokio::spawn(async move { wait_for_code(loopback, "good", Duration::from_secs(5)).await });
+            let mut s = tokio::net::TcpStream::connect(("::1", port)).await.unwrap();
+            s.write_all(b"GET /?state=good&code=M.six HTTP/1.1\r\nHost: x\r\n\r\n").await.unwrap();
+            let mut page = String::new();
+            s.read_to_string(&mut page).await.unwrap();
+            assert!(page.contains("Signed in"));
+            assert_eq!(waiting.await.unwrap().unwrap(), "M.six");
+        }
+
         let google = Loopback::bind(&Config::google("id".into(), String::new())).await.unwrap();
         assert!(google.redirect_uri.starts_with("http://127.0.0.1:"));
     }

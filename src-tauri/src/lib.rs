@@ -134,6 +134,26 @@ async fn load_password(address: String) -> Result<String> {
         .map_err(|e| Error(format!("Could not read the password from the system keyring: {}", e.0)))
 }
 
+async fn forget_password(address: String) {
+    let _ = tokio::task::spawn_blocking(move || keyring::Entry::new(KEYRING_SERVICE, &address).and_then(|e| e.delete_credential())).await;
+}
+
+/// True when the name Microsoft signed the user in with shows that the mailbox is not the
+/// one at the typed address. The two differ honestly in one case only: a Microsoft account
+/// made with an address from elsewhere, whose mailbox has an outlook.com address of its own.
+fn other_mailbox(typed: &str, signed_in: &str) -> bool {
+    let domain = |address: &str| address.rsplit('@').next().unwrap_or("").to_lowercase();
+    let microsoft = |domain: &str| {
+        let labels: Vec<&str> = domain.split('.').collect();
+        let country = |l: &str| l.len() == 2 && l.bytes().all(|b| b.is_ascii_lowercase());
+        domain == "msn.com"
+            || matches!(labels.as_slice(), [name, rest @ ..] if ["outlook", "hotmail", "live"].contains(name)
+                && match rest { [one] => *one == "com" || country(one), [a, b] => ["com", "co"].contains(a) && country(b), _ => false })
+    };
+    let (typed_at, signed_at) = (domain(typed), domain(signed_in));
+    !typed.eq_ignore_ascii_case(signed_in) && (typed_at == signed_at || microsoft(&signed_at) || !microsoft(&typed_at))
+}
+
 /// The key of the encrypted database, kept in the system keyring.
 /// Made on first use; never recreated when a database already depends on it.
 pub fn database_key(database: &std::path::Path) -> std::result::Result<String, String> {
@@ -209,7 +229,17 @@ async fn account_secret(state: &AppState, account_id: i64) -> Result<(String, Ac
     let tokens = oauth::refresh(&oauth_config(&state.db, provider)?, &stored).await?;
     // Microsoft replaces the refresh token each time it is used. Keep the new one.
     if let Some(next) = tokens.refresh_token.filter(|next| *next != stored) {
+        // The account may have been removed while the provider was answering. Its token
+        // must not come back into the keyring then.
+        let removed = || db::account_settings(&db::lock(&state.db), account_id).is_err();
+        if removed() {
+            return Err(Error("This account was removed.".into()));
+        }
         save_password(address.clone(), next).await?;
+        if removed() {
+            forget_password(address.clone()).await;
+            return Err(Error("This account was removed.".into()));
+        }
     }
     state.tokens.lock().unwrap().insert(account_id, (tokens.access_token.clone(), now() + tokens.expires_in));
     Ok((address, settings, Secret::OAuthToken(tokens.access_token)))
@@ -873,7 +903,7 @@ async fn remove_account(app: AppHandle, state: State<'_, AppState>, id: i64) -> 
     if let Some(wake) = state.wakers.lock().unwrap().remove(&id) {
         wake.notify_one(); // its background task notices the account is gone and stops
     }
-    let _ = tokio::task::spawn_blocking(move || keyring::Entry::new(KEYRING_SERVICE, &address).and_then(|e| e.delete_credential())).await;
+    forget_password(address).await;
     let _ = app.emit("mail-changed", id);
     Ok(())
 }
@@ -1161,6 +1191,10 @@ async fn oauth_sign_in(app: AppHandle, state: State<'_, AppState>, provider: Pro
         Provider::Microsoft => tokens.signed_in_as().unwrap_or_else(|| address.clone()),
         Provider::Google => address.clone(),
     };
+    // Picking another account in the browser would put that account's mail under the typed address.
+    if provider == Provider::Microsoft && other_mailbox(&address, &user) {
+        return Err(Error(format!("You signed in to Microsoft as {user}, not as {address}. Nothing was added. Add the account again with {user} as its address, or choose {address} in the browser.")));
+    }
     let server = |host: &str, port: u16, security: Security| ServerSettings { host: host.into(), port, security, username: user.clone() };
     let (imap, smtp) = match provider {
         Provider::Google => (server("imap.gmail.com", 993, Security::Tls), server("smtp.gmail.com", 465, Security::Tls)),
@@ -1532,6 +1566,19 @@ async fn open_attachment(app: AppHandle, state: State<'_, AppState>, id: i64, in
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn signing_in_to_another_microsoft_account_is_noticed() {
+        use super::other_mailbox;
+        assert!(!other_mailbox("katy@outlook.com", "Katy@Outlook.com"));
+        // A Microsoft account made with a Gmail address: its mailbox has an outlook.com address of its own.
+        assert!(!other_mailbox("outlook_553e00adc7e559f6@outlook.com", "katy@gmail.com"));
+        assert!(other_mailbox("katy@outlook.com", "tom@outlook.com"));
+        assert!(other_mailbox("katy@outlook.com", "tom@hotmail.co.uk"));
+        assert!(other_mailbox("katy@example.org", "tom@example.org"));
+        assert!(other_mailbox("katy@example.org", "tom@gmail.com"));
+        assert!(other_mailbox("katy@outlook.evil.example", "tom@outlook.evil.example"));
+    }
     use super::{is_public, parse_desktop_font, unsubscribe_mail, web_link, OPENABLE};
     use crate::model::{AccountSettings, Provider, Security, ServerSettings};
 

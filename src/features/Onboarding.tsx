@@ -125,10 +125,13 @@ export function Onboarding() {
   }, [accounts.length, had, step]);
 
   // Outlook is offered when this copy can sign in with Microsoft (official packages can).
+  // Asked again when a dialog closes: a client ID may have been entered in Settings meanwhile.
+  const dialog = useStore((s) => s.dialog);
   const [outlook, setOutlook] = useState(false);
   useEffect(() => {
+    if (dialog) return;
     void backend.signInProviders().then((p) => setOutlook(p.includes("microsoft")), () => {});
-  }, []);
+  }, [dialog]);
   const add = (kind: "google" | "microsoft" | "imap") => {
     preferAccountKind(kind);
     setDialog("add-account");
