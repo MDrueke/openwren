@@ -1,6 +1,9 @@
 /** Shapes shared with the Rust core (src-tauri/src/model.rs). */
 
-export type AccountKind = "gmail" | "imap";
+export type AccountKind = "gmail" | "outlook" | "imap";
+
+/** A mail provider with its own browser sign-in. */
+export type Provider = "google" | "microsoft";
 
 export interface Account {
   id: number;

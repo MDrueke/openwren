@@ -30,6 +30,12 @@ export function isProtonAddress(address: string): boolean {
   return ["proton.me", "protonmail.com", "protonmail.ch", "pm.me"].includes(domain);
 }
 
+/** Microsoft's own mail domains. They take no password over IMAP, only Microsoft's browser sign-in. */
+export function isMicrosoftAddress(address: string): boolean {
+  const domain = (address.trim().split("@")[1] ?? "").toLowerCase();
+  return /^(outlook|hotmail|live)\.(com|[a-z]{2}|com?\.[a-z]{2})$/.test(domain) || domain === "msn.com";
+}
+
 /**
  * Proton Mail Bridge's default servers. Bridge runs on this computer and uses its own
  * certificate, which OpenWren does not accept, so the connection is left unencrypted:

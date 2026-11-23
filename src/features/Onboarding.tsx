@@ -2,6 +2,7 @@ import {
   IconArrowLeft,
   IconArrowRight,
   IconBrandGoogle,
+  IconBrandWindows,
   IconCheck,
   IconCode,
   IconEyeOff,
@@ -123,7 +124,15 @@ export function Onboarding() {
     if (step === 1 && accounts.length > had) setStep(2);
   }, [accounts.length, had, step]);
 
-  const add = (kind: "google" | "imap") => {
+  // Outlook is offered when this copy can sign in with Microsoft (official packages can).
+  // Asked again when a dialog closes: a client ID may have been entered in Settings meanwhile.
+  const dialog = useStore((s) => s.dialog);
+  const [outlook, setOutlook] = useState(false);
+  useEffect(() => {
+    if (dialog) return;
+    void backend.signInProviders().then((p) => setOutlook(p.includes("microsoft")), () => {});
+  }, [dialog]);
+  const add = (kind: "google" | "microsoft" | "imap") => {
     preferAccountKind(kind);
     setDialog("add-account");
   };
@@ -193,6 +202,18 @@ export function Onboarding() {
                     </span>
                     <IconArrowRight size={18} className="ml-auto text-ink3" />
                   </button>
+                  {outlook && (
+                    <button type="button" className={card} onClick={() => add("microsoft")}>
+                      <span className="flex size-11 flex-none items-center justify-center rounded-xl bg-soft text-brand">
+                        <IconBrandWindows size={22} />
+                      </span>
+                      <span>
+                        <span className="block text-ink">Outlook</span>
+                        <span className="block text-ink2">Outlook.com, Hotmail, Live and Microsoft 365, with Microsoft's sign-in</span>
+                      </span>
+                      <IconArrowRight size={18} className="ml-auto text-ink3" />
+                    </button>
+                  )}
                   <button type="button" className={card} onClick={() => add("imap")}>
                     <span className="flex size-11 flex-none items-center justify-center rounded-xl bg-soft text-brand">
                       <IconMail size={22} />

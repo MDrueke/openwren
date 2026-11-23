@@ -67,7 +67,7 @@ async fn open(settings: &ImapSettings, secret: &Secret) -> Result<Session> {
         Secret::OAuthToken(token) => client
             .authenticate("XOAUTH2", XOAuth2(crate::oauth::xoauth2(&settings.username, token)))
             .await
-            .map_err(|(e, _)| Error(format!("The server did not accept the Google sign-in: {e}"))),
+            .map_err(|(e, _)| Error(format!("The server did not accept the browser sign-in: {e}"))),
     }
 }
 

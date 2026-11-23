@@ -1,12 +1,12 @@
 import { IconX } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { backend, errorText } from "../backend";
 import { Button, Chip, IconButton, fieldBox, fieldCaption } from "../components/ui";
-import { isOnThisComputer, isProtonAddress, protonBridge } from "../lib/servers";
+import { isMicrosoftAddress, isOnThisComputer, isProtonAddress, protonBridge } from "../lib/servers";
 import { useStore } from "../store";
-import type { Security, ServerSettings } from "../types";
+import type { Provider, Security, ServerSettings } from "../types";
 
-type Kind = "imap" | "google" | "proton";
+type Kind = "imap" | "google" | "microsoft" | "proton";
 
 const ports: Record<"imap" | "smtp", Record<Security, number>> = {
   imap: { tls: 993, starttls: 143, none: 143 },
@@ -87,11 +87,17 @@ export function preferAccountKind(kind: Kind) {
   preferred = kind;
 }
 
-/** Add a Google or IMAP account. */
+/** Add a Google, Outlook or IMAP account. */
 export function AddAccount() {
   const setDialog = useStore((s) => s.setDialog);
   const refresh = useStore((s) => s.refresh);
-  const hasGoogleClient = useStore((s) => (s.settings.google_client_id ?? "").trim() !== "");
+  // Browser sign-in needs a client ID: built into official packages, or the user's own from Settings.
+  const [providers, setProviders] = useState<Provider[]>([]);
+  useEffect(() => {
+    void backend.signInProviders().then(setProviders, () => {});
+  }, []);
+  const hasGoogleClient = providers.includes("google");
+  const hasMicrosoftClient = providers.includes("microsoft");
   const [kind, setKind] = useState<Kind>(() => {
     const start = preferred ?? remembered?.kind ?? "imap";
     preferred = null;
@@ -112,7 +118,10 @@ export function AddAccount() {
   const [googleWay, setGoogleWay] = useState<"password" | "oauth">("password");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const oauth = kind === "google" && googleWay === "oauth";
+  // Outlook has one way in: Microsoft accepts no password for mail.
+  const oauth = kind === "microsoft" || (kind === "google" && googleWay === "oauth");
+  // Gmail and Outlook have their own instructions in place of the password and server fields.
+  const guided = kind === "google" || kind === "microsoft";
 
   const close = () => setDialog(null);
 
@@ -134,7 +143,7 @@ export function AddAccount() {
     const user = address.trim();
     if (!user.includes("@")) return setError("Enter a full email address.");
     if (kind === "google" && !oauth && !password.trim()) return setError("Paste the app password you created in your Google account.");
-    if (kind !== "google") {
+    if (!guided) {
       if (!password) return setError("Enter the password for this account.");
       if (!incoming.host.trim()) return setError("Enter the incoming mail server.");
       if (!validPort(incoming) || (outgoing.host.trim() && !validPort(outgoing))) return setError("Enter a port between 1 and 65535.");
@@ -143,7 +152,7 @@ export function AddAccount() {
     setBusy(true);
     try {
       if (oauth) {
-        await backend.googleSignIn(user, name.trim());
+        await backend.oauthSignIn(kind === "microsoft" ? "microsoft" : "google", user, name.trim());
       } else if (kind === "google") {
         // Google shows app passwords in groups of four with spaces; the servers want them without.
         const gmail = (host: string, port: number): ServerSettings => ({ host, port, security: "tls", username: user });
@@ -173,7 +182,7 @@ export function AddAccount() {
     }
   }
 
-  const unencrypted = kind === "google" ? [] : [incoming, ...(outgoing.host.trim() ? [outgoing] : [])].filter((s) => s.security === "none");
+  const unencrypted = guided ? [] : [incoming, ...(outgoing.host.trim() ? [outgoing] : [])].filter((s) => s.security === "none");
   // Unencrypted is refused for anything but this computer; there, nothing crosses a network.
   const insecure = unencrypted.some((s) => !isOnThisComputer(s.host));
   const local = unencrypted.length > 0 && !insecure;
@@ -200,6 +209,9 @@ export function AddAccount() {
           <Chip on={kind === "google"} onClick={() => changeKind("google")}>
             Google
           </Chip>
+          <Chip on={kind === "microsoft"} onClick={() => changeKind("microsoft")}>
+            Outlook
+          </Chip>
           <Chip on={kind === "proton"} onClick={() => changeKind("proton")}>
             Proton Mail
           </Chip>
@@ -213,15 +225,15 @@ export function AddAccount() {
         </label>
         <input id="aa-address" type="email" autoFocus autoComplete="off" value={address} placeholder="name@company.com" className={fieldBox} onChange={(e) => changeAddress(e.target.value)} />
 
-        <div className={`mt-3 grid gap-3 ${kind === "google" ? "" : "grid-cols-2"}`}>
-          {/* Gmail's password field sits below its instructions instead. */}
+        <div className={`mt-3 grid gap-3 ${guided ? "" : "grid-cols-2"}`}>
+          {/* Gmail's password field sits below its instructions instead. Outlook has none. */}
           <div>
             <label className={fieldCaption} htmlFor="aa-name">
               Your name <span className="text-ink3">(optional)</span>
             </label>
             <input id="aa-name" value={name} onChange={(e) => setName(e.target.value)} className={fieldBox} autoComplete="off" />
           </div>
-          {kind !== "google" && (
+          {!guided && (
             <div>
               <label className={fieldCaption} htmlFor="aa-password">
                 {kind === "proton" ? "Bridge password" : "Password"}
@@ -258,10 +270,25 @@ export function AddAccount() {
             </p>
           </>
         )}
-        {oauth && (
+        {kind === "microsoft" && (
           <p className="mt-3 text-[13px] text-ink2">
-            Your browser opens so you can sign in with Google. OpenWren never sees your password. This way needs your own Google client ID
-            {hasGoogleClient ? "." : ", entered first in "}
+            Your browser opens so you can sign in with Microsoft. OpenWren never sees your password. For Outlook.com, Hotmail, Live and Microsoft 365 addresses.
+            {!hasMicrosoftClient && (
+              <>
+                {" "}
+                This copy of OpenWren needs a Microsoft client ID, entered first in{" "}
+                <button type="button" className="text-brand underline" onClick={() => setDialog("settings", "accounts")}>
+                  Settings
+                </button>
+                .
+              </>
+            )}
+          </p>
+        )}
+        {kind === "google" && oauth && (
+          <p className="mt-3 text-[13px] text-ink2">
+            Your browser opens so you can sign in with Google. OpenWren never sees your password.
+            {!hasGoogleClient && " This way needs your own Google client ID, entered first in "}
             {!hasGoogleClient && (
               <button type="button" className="text-brand underline" onClick={() => setDialog("settings", "accounts")}>
                 Settings
@@ -281,6 +308,14 @@ export function AddAccount() {
             </button>
           </p>
         )}
+        {kind === "imap" && isMicrosoftAddress(address) && (
+          <p className="mt-2 text-xs text-ink2">
+            Microsoft accepts no password here, only its own sign-in.{" "}
+            <button type="button" className="text-brand underline" onClick={() => changeKind("microsoft")}>
+              Sign in with Microsoft
+            </button>
+          </p>
+        )}
         {kind === "proton" && (
           <div className="mt-3 rounded-[10px] bg-canvas px-3.5 py-3 text-[13px] text-ink2">
             <div className="mb-1.5 text-ink">Proton Mail needs Proton Mail Bridge</div>
@@ -296,7 +331,7 @@ export function AddAccount() {
             </ol>
           </div>
         )}
-        {kind !== "google" && (
+        {!guided && (
           <>
             <ServerRow id="aa-in" title="Incoming server (IMAP)" protocol="imap" value={incoming} onChange={setIncoming} />
             <ServerRow id="aa-out" title="Outgoing server (SMTP)" optional protocol="smtp" value={outgoing} onChange={setOutgoing} />
@@ -317,7 +352,7 @@ export function AddAccount() {
         <div className="mt-4 flex justify-end gap-2">
           <Button onClick={close}>Cancel</Button>
           <Button variant="primary" type="submit">
-            {busy ? (oauth ? "Waiting for the browser…" : "Checking…") : oauth ? "Sign in with Google" : "Add account"}
+            {busy ? (oauth ? "Waiting for the browser…" : "Checking…") : kind === "microsoft" ? "Sign in with Microsoft" : oauth ? "Sign in with Google" : "Add account"}
           </Button>
         </div>
       </form>

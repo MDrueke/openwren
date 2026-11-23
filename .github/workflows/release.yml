@@ -64,6 +64,9 @@ jobs:
 
       # --locked: build exactly the Rust crates recorded in Cargo.lock.
       - run: pnpm tauri build --bundles deb,rpm,appimage -- --locked
+        env:
+          # The public ID of OpenWren\'s app registration at Microsoft, for Outlook sign-in. Not a secret.
+          OPENWREN_MICROSOFT_CLIENT_ID: ${{ vars.MICROSOFT_CLIENT_ID }}
 
       - name: Collect packages and write SHA256SUMS
         run: |
@@ -115,6 +118,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm tauri build --bundles nsis -- --locked
+        env:
+          # The public ID of OpenWren\'s app registration at Microsoft, for Outlook sign-in. Not a secret.
+          OPENWREN_MICROSOFT_CLIENT_ID: ${{ vars.MICROSOFT_CLIENT_ID }}
 
       - name: Collect the installer
         shell: bash
@@ -158,6 +164,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm tauri build --target universal-apple-darwin --bundles app,dmg -- --locked
+        env:
+          # The public ID of OpenWren\'s app registration at Microsoft, for Outlook sign-in. Not a secret.
+          OPENWREN_MICROSOFT_CLIENT_ID: ${{ vars.MICROSOFT_CLIENT_ID }}
 
       # The .dmg is what people download; the .app.tar.gz is what the in-app updater installs.
       - name: Collect the disk image and the update archive

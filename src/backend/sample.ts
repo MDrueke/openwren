@@ -275,9 +275,10 @@ export const sampleBackend: Backend = {
   addAccount: async () => {
     throw desktopOnly("Adding accounts");
   },
-  googleSignIn: async () => {
-    throw desktopOnly("Google sign-in");
+  oauthSignIn: async () => {
+    throw desktopOnly("Browser sign-in");
   },
+  signInProviders: async () => [],
   reorderAccounts: async (ids) => {
     accounts.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   },

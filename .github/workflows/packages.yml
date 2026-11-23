@@ -55,6 +55,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm tauri build --bundles deb,rpm
+        env:
+          # The public ID of OpenWren\'s app registration at Microsoft, for Outlook sign-in. Not a secret.
+          OPENWREN_MICROSOFT_CLIENT_ID: ${{ vars.MICROSOFT_CLIENT_ID }}
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

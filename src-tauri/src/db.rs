@@ -29,11 +29,17 @@ pub fn insert_account(conn: &Connection, address: &str, display_name: &str, kind
 
 pub fn list_accounts(conn: &Connection) -> Result<Vec<Account>> {
     let mut stmt = conn.prepare(
-        "SELECT a.id, a.address, a.display_name, a.kind, (SELECT value FROM settings WHERE key = 'auth_server_' || a.id)
+        "SELECT a.id, a.address, a.display_name, a.kind, (SELECT value FROM settings WHERE key = 'auth_server_' || a.id), a.settings
            FROM accounts a ORDER BY a.position, a.id",
     )?;
     let rows = stmt.query_map([], |r| {
-        Ok(Account { id: r.get(0)?, address: r.get(1)?, display_name: r.get(2)?, kind: r.get(3)?, auth_server: r.get(4)? })
+        // The table stores an Outlook account as "imap"; its settings say it is Outlook.
+        let settings: String = r.get(5)?;
+        let kind = match serde_json::from_str::<AccountSettings>(&settings) {
+            Ok(settings) if settings.kind() == "outlook" => "outlook".to_string(),
+            _ => r.get(3)?,
+        };
+        Ok(Account { id: r.get(0)?, address: r.get(1)?, display_name: r.get(2)?, kind, auth_server: r.get(4)? })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
@@ -1033,6 +1039,21 @@ mod tests {
         assert!(!was_picked(&conn, "/home/ann/old.pdf").unwrap());
         assert!(was_picked(&conn, "/home/ann/in draft.pdf").unwrap());
         assert!(was_picked(&conn, "/home/ann/new.pdf").unwrap());
+    }
+
+    #[test]
+    fn an_outlook_account_fits_the_table_and_is_listed_as_outlook() {
+        use crate::model::Provider;
+        let conn = crate::store::open_in_memory().unwrap();
+        let outlook = AccountSettings { oauth: true, provider: Some(Provider::Microsoft), ..Default::default() };
+        let google = AccountSettings { oauth: true, ..Default::default() };
+        // The table accepts only the kinds it was made with.
+        assert!(insert_account(&conn, "x@example.test", "x", "outlook", &outlook).is_err());
+        insert_account(&conn, "katy@outlook.com", "Katy", outlook.stored_kind(), &outlook).unwrap();
+        insert_account(&conn, "katy@gmail.com", "Katy", google.stored_kind(), &google).unwrap();
+        insert_account(&conn, "katy@example.test", "Katy", AccountSettings::default().stored_kind(), &AccountSettings::default()).unwrap();
+        let kinds: Vec<String> = list_accounts(&conn).unwrap().into_iter().map(|a| a.kind).collect();
+        assert_eq!(kinds, ["outlook", "gmail", "imap"]);
     }
 
     #[test]

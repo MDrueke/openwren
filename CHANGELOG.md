@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Outlook accounts can be added: choose Outlook in "Add account" and sign in with Microsoft in your browser. This is for Outlook.com, Hotmail, Live and Microsoft 365 addresses, which accept no password for mail. Work and school accounts may need their administrator's approval first.
+- Typing a Microsoft address on the IMAP tab points to the Outlook sign-in.
+- An account whose saved browser sign-in was cancelled now says so, and asks you to remove and add it again.
+
 ## 0.1.12
 
 - A `mailto:` link in a message opens OpenWren's own composer, filled with the recipient, copy, subject and text only. It used to go to the system mail program with all its parameters, and some programs attach local files when a link asks them to.
