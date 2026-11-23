@@ -141,6 +141,23 @@ async fn forget_password(address: String) {
     let _ = tokio::task::spawn_blocking(move || keyring::Entry::new(KEYRING_SERVICE, &address).and_then(|e| e.delete_credential())).await;
 }
 
+/// True when the name Microsoft signed the user in with shows that the mailbox is not the
+/// one at the typed address. Microsoft reports the account's main name, never the alias that
+/// was typed, so the two differ honestly in one case: an account whose main name is an address
+/// from elsewhere (say Gmail), with its Outlook address as an alias. An account whose main
+/// name is itself an Outlook address has its mailbox there.
+fn other_mailbox(typed: &str, signed_in: &str) -> bool {
+    let domain = |address: &str| address.rsplit('@').next().unwrap_or("").to_lowercase();
+    let microsoft = |domain: &str| {
+        let labels: Vec<&str> = domain.split('.').collect();
+        let country = |l: &str| l.len() == 2 && l.bytes().all(|b| b.is_ascii_lowercase());
+        domain == "msn.com"
+            || matches!(labels.as_slice(), [name, rest @ ..] if ["outlook", "hotmail", "live"].contains(name)
+                && match rest { [one] => *one == "com" || country(one), [a, b] => ["com", "co"].contains(a) && country(b), _ => false })
+    };
+    !typed.eq_ignore_ascii_case(signed_in) && (microsoft(&domain(signed_in)) || !microsoft(&domain(typed)))
+}
+
 /// The key of the encrypted database, kept in the system keyring.
 /// Made on first use; never recreated when a database already depends on it.
 pub fn database_key(database: &std::path::Path) -> std::result::Result<String, String> {
@@ -1175,14 +1192,15 @@ async fn oauth_sign_in(app: AppHandle, state: State<'_, AppState>, provider: Pro
         Provider::Microsoft => "Microsoft did not return a refresh token. Try again.".into(),
     }))?;
 
-    // The name Microsoft signed the user in with; it must be the address typed here.
+    // Microsoft's mail server knows the mailbox by the account's main name, which is not the
+    // typed address when that is an alias.
     let user = match provider {
         Provider::Microsoft => tokens.signed_in_as().unwrap_or_else(|| address.clone()),
         Provider::Google => address.clone(),
     };
     // Picking another account in the browser would put that account's mail under the typed address.
-    if user != address {
-        return Err(Error(format!("You signed in to Microsoft as {user}, not as {address}. Nothing was added. Type the address you sign in to Microsoft with, or choose {address} in the browser.")));
+    if other_mailbox(&address, &user) {
+        return Err(Error(format!("You signed in to Microsoft as {user}, not as {address}. Nothing was added. Add the account again with {user} as its address, or choose {address} in the browser.")));
     }
     let server = |host: &str, port: u16, security: Security| ServerSettings { host: host.into(), port, security, username: user.clone() };
     let (imap, smtp) = match provider {
@@ -1557,6 +1575,20 @@ async fn open_attachment(app: AppHandle, state: State<'_, AppState>, id: i64, in
 mod tests {
     use super::{is_public, parse_desktop_font, unsubscribe_mail, web_link, OPENABLE};
     use crate::model::{AccountSettings, Provider, Security, ServerSettings};
+
+    #[test]
+    fn signing_in_to_another_microsoft_account_is_noticed() {
+        use super::other_mailbox;
+        assert!(!other_mailbox("katy@outlook.com", "Katy@Outlook.com"));
+        // The account's main name is a Gmail address; the Outlook address is its alias.
+        assert!(!other_mailbox("katy@outlook.com", "katy.k@gmail.com"));
+        assert!(!other_mailbox("katy@hotmail.co.uk", "katy@example.org"));
+        assert!(other_mailbox("katy@outlook.com", "tom@outlook.com"));
+        assert!(other_mailbox("katy@outlook.com", "tom@hotmail.co.uk"));
+        assert!(other_mailbox("katy@example.org", "tom@example.org"));
+        assert!(other_mailbox("katy@example.org", "tom@gmail.com"));
+        assert!(other_mailbox("katy@outlook.evil.example", "tom@gmail.com"));
+    }
 
     #[test]
     fn only_web_links_go_to_the_browser() {
