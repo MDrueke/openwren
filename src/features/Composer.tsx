@@ -49,7 +49,10 @@ export function looksComplete(text: string): boolean {
 }
 
 function Recipients({ name, value, onChange, autoFocus }: { name: string; value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
-  const [suggestions, setSuggestions] = useState<Contact[]>([]);
+  // The suggestions and the text they were found for: while a newer search is on its way they
+  // may still be shown, but the keyboard must not put an old match in place of what was typed.
+  const [found, setFound] = useState<{ for: string; contacts: Contact[] }>({ for: "", contacts: [] });
+  const suggestions = found.contacts;
   const [focused, setFocused] = useState(false);
   const [caret, setCaret] = useState(value.length);
   // The highlighted suggestion (-1: none), whether it was chosen with the arrow keys, and whether Escape hid the list.
@@ -62,25 +65,26 @@ function Recipients({ name, value, onChange, autoFocus }: { name: string; value:
   useEffect(() => {
     setHidden(false);
     setMoved(false);
-    if (token.length < 2 || token.includes(">")) return setSuggestions([]);
+    if (token.length < 2 || token.includes(">")) return setFound({ for: token, contacts: [] });
     let current = true;
-    void backend.suggestContacts(token).then((found) => {
+    void backend.suggestContacts(token).then((contacts) => {
       if (!current) return;
-      setSuggestions(found);
+      setFound({ for: token, contacts });
       // A finished address gets no highlight, so Tab moves on; the list stays to pick from.
-      setActive(found.length > 0 && !looksComplete(token) ? 0 : -1);
+      setActive(contacts.length > 0 && !looksComplete(token) ? 0 : -1);
     });
     return () => {
       current = false;
     };
   }, [token]);
   const open = focused && !hidden && suggestions.length > 0;
+  const fresh = found.for === token;
 
   function choose(contact: Contact) {
     const done = completeAt(value, caret, contact);
     onChange(done.value);
     setCaret(done.caret);
-    setSuggestions([]);
+    setFound({ for: "", contacts: [] });
     requestAnimationFrame(() => inputRef.current?.setSelectionRange(done.caret, done.caret));
   }
 
@@ -92,8 +96,8 @@ function Recipients({ name, value, onChange, autoFocus }: { name: string; value:
       setMoved(true);
       setActive((i) => (e.key === "ArrowDown" ? (i + 1) % n : i <= 0 ? n - 1 : i - 1));
     } else if ((e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) && !e.altKey && !e.ctrlKey && !e.metaKey) {
-      // Checked again here: the list may still be the one for a shorter text typed a moment ago.
-      if (active < 0 || active >= n || (!moved && looksComplete(token))) return;
+      // Only suggestions found for the text now in the field; otherwise Tab and Enter work as usual.
+      if (!fresh || active < 0 || active >= n || (!moved && looksComplete(token))) return;
       e.preventDefault();
       choose(suggestions[active]);
     } else if (e.key === "Escape") {
@@ -125,7 +129,7 @@ function Recipients({ name, value, onChange, autoFocus }: { name: string; value:
         aria-autocomplete="list"
         aria-expanded={open}
         aria-controls={listId}
-        aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined}
+        aria-activedescendant={open && fresh && active >= 0 ? `${listId}-${active}` : undefined}
       />
       {open && (
         <div id={listId} className="absolute top-full left-16 z-20 mt-1 min-w-72 rounded-[10px] border border-edge bg-card py-1 shadow-lg" role="listbox" aria-label={`${name} suggestions`}>
@@ -135,7 +139,7 @@ function Recipients({ name, value, onChange, autoFocus }: { name: string; value:
               id={`${listId}-${i}`}
               type="button"
               role="option"
-              aria-selected={i === active}
+              aria-selected={fresh && i === active}
               // Not a Tab stop: Tab from the field goes to the next field, not into this list.
               tabIndex={-1}
               // onMouseDown: act before the input loses focus and the list closes.
@@ -143,7 +147,7 @@ function Recipients({ name, value, onChange, autoFocus }: { name: string; value:
                 e.preventDefault();
                 choose(c);
               }}
-              className={`flex w-full items-baseline gap-2 px-3 py-1.5 text-left ${i === active ? "bg-hover" : "hover:bg-hover"}`}
+              className={`flex w-full items-baseline gap-2 px-3 py-1.5 text-left ${fresh && i === active ? "bg-hover" : "hover:bg-hover"}`}
             >
               <span>{c.name || c.address}</span>
               {c.name && <span className="text-xs text-ink2">{c.address}</span>}
