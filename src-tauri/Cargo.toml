@@ -53,6 +53,8 @@ tauri-plugin-autostart = "2"
 [dev-dependencies]
 # Paused clocks for the tests of connection time limits.
 tokio = { version = "1.53.3", features = ["test-util"] }
+# A certificate for the test TLS server.
+rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
 # For the test that checks published updates against the update key.
 minisign-verify = "0.2"
 

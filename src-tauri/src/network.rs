@@ -125,6 +125,7 @@ pub fn watch() {}
 pub struct Watched<S> {
     inner: S,
     opened: u64,
+    limit: Duration,
     /// Registered while waiting, so that a network change wakes the wait.
     change: Option<Pin<Box<OwnedNotified>>>,
     /// Running while waiting, outside IDLE.
@@ -133,7 +134,12 @@ pub struct Watched<S> {
 
 impl<S> Watched<S> {
     pub fn new(inner: S) -> Self {
-        Watched { inner, opened: generation(), change: None, quiet: None }
+        Self::with_limit(inner, QUIET_LIMIT)
+    }
+
+    /// With a shorter limit, for tests that use real sockets and so cannot pause the clock.
+    fn with_limit(inner: S, limit: Duration) -> Self {
+        Watched { inner, opened: generation(), limit, change: None, quiet: None }
     }
 
     fn check(&self) -> io::Result<()> {
@@ -161,10 +167,11 @@ impl<S> Watched<S> {
             self.quiet = None;
             return Ok(());
         }
-        let quiet = self.quiet.get_or_insert_with(|| Box::pin(tokio::time::sleep(QUIET_LIMIT)));
+        let limit = self.limit;
+        let quiet = self.quiet.get_or_insert_with(|| Box::pin(tokio::time::sleep(limit)));
         if quiet.as_mut().poll(cx).is_ready() {
             self.quiet = None;
-            return Err(io::Error::new(io::ErrorKind::TimedOut, format!("The server did not answer for {} seconds.", QUIET_LIMIT.as_secs())));
+            return Err(io::Error::new(io::ErrorKind::TimedOut, format!("The server did not answer for {} seconds.", limit.as_secs())));
         }
         Ok(())
     }
@@ -228,13 +235,18 @@ mod tests {
     // The generation is global, so the tests that change it must not overlap the others.
     static SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
+    /// A wait that fails the test instead of stalling it. On a paused clock the hour passes at once.
+    async fn bounded<F: Future>(f: F) -> F::Output {
+        tokio::time::timeout(Duration::from_secs(3600), f).await.expect("the wait never ended")
+    }
+
     #[tokio::test(start_paused = true)]
     async fn a_silent_server_times_out() {
         let _one = SERIAL.lock().await;
         let (client, _server) = tokio::io::duplex(64);
         let mut watched = Watched::new(client);
         let started = tokio::time::Instant::now();
-        let err = watched.read(&mut [0; 8]).await.unwrap_err();
+        let err = bounded(watched.read(&mut [0; 8])).await.unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::TimedOut);
         assert_eq!(started.elapsed(), QUIET_LIMIT);
     }
@@ -256,7 +268,7 @@ mod tests {
             watched.read_exact(&mut byte).await.unwrap();
         }
         let _server = talk.await.unwrap();
-        assert_eq!(watched.read(&mut byte).await.unwrap_err().kind(), io::ErrorKind::TimedOut);
+        assert_eq!(bounded(watched.read(&mut byte)).await.unwrap_err().kind(), io::ErrorKind::TimedOut);
     }
 
     #[tokio::test(start_paused = true)]
@@ -270,7 +282,7 @@ mod tests {
             server
         });
         let mut line = [0; 12];
-        idling(watched.read_exact(&mut line)).await.unwrap();
+        bounded(idling(watched.read_exact(&mut line))).await.unwrap();
         assert_eq!(&line, b"* 3 EXISTS\r\n");
         let _server = talk.await.unwrap();
     }
@@ -286,7 +298,7 @@ mod tests {
             changed();
         });
         // Even in IDLE, which has no time limit.
-        let err = idling(watched.read(&mut [0; 8])).await.unwrap_err();
+        let err = bounded(idling(watched.read(&mut [0; 8]))).await.unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::ConnectionAborted);
         assert_eq!(started.elapsed(), Duration::from_secs(5));
         assert!(changed_within(Duration::from_secs(1)));
@@ -340,8 +352,72 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(300)).await;
             changed();
         });
-        let err = session.select("INBOX").await.unwrap_err();
+        // Bounded, so that a broken wake-up fails the test instead of stalling it.
+        let err = tokio::time::timeout(Duration::from_secs(5), session.select("INBOX"))
+            .await
+            .expect("the network change did not end the command within five seconds")
+            .unwrap_err();
         assert!(err.to_string().contains("network changed"), "{err}");
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    /// A TLS server for "localhost" that completes the handshake, reads one line, then goes
+    /// silent. Returns the client side, TLS over `Watched` as for a real account.
+    async fn tls_to_a_server_that_goes_silent(limit: Duration) -> tokio_rustls::client::TlsStream<Watched<tokio::net::TcpStream>> {
+        use tokio::io::AsyncBufReadExt;
+        use tokio_rustls::rustls::{self, pki_types::PrivateKeyDer, ClientConfig, RootCertStore, ServerConfig};
+        let provider = Arc::new(rustls::crypto::ring::default_provider());
+        let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()]).unwrap();
+        let key = PrivateKeyDer::Pkcs8(cert.key_pair.serialize_der().into());
+        let server = ServerConfig::builder_with_provider(provider.clone())
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_no_client_auth()
+            .with_single_cert(vec![cert.cert.der().clone()], key)
+            .unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let tls = tokio_rustls::TlsAcceptor::from(Arc::new(server)).accept(socket).await.unwrap();
+            let mut lines = tokio::io::BufReader::new(tls).lines();
+            let _ = lines.next_line().await;
+            tokio::time::sleep(Duration::from_secs(3600)).await;
+            drop(lines);
+        });
+        let mut roots = RootCertStore::empty();
+        roots.add(cert.cert.der().clone()).unwrap();
+        let client = ClientConfig::builder_with_provider(provider).with_safe_default_protocol_versions().unwrap().with_root_certificates(roots).with_no_client_auth();
+        let tcp = Watched::with_limit(tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap(), limit);
+        let name = rustls::pki_types::ServerName::try_from("localhost").unwrap();
+        let mut tls = tokio_rustls::TlsConnector::from(Arc::new(client)).connect(name, tcp).await.unwrap();
+        tls.write_all(b"a1 NOOP\r\n").await.unwrap();
+        tls.flush().await.unwrap();
+        tls
+    }
+
+    #[tokio::test]
+    async fn under_tls_a_silent_server_times_out() {
+        let _one = SERIAL.lock().await;
+        let limit = Duration::from_millis(300);
+        let mut tls = tls_to_a_server_that_goes_silent(limit).await;
+        let started = Instant::now();
+        let err = tokio::time::timeout(Duration::from_secs(5), tls.read(&mut [0; 64])).await.expect("no time limit under TLS").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::TimedOut);
+        assert!(started.elapsed() >= limit);
+    }
+
+    #[tokio::test]
+    async fn under_tls_a_network_change_ends_a_wait_at_once() {
+        let _one = SERIAL.lock().await;
+        let mut tls = tls_to_a_server_that_goes_silent(QUIET_LIMIT).await;
+        let started = Instant::now();
+        tokio::spawn(async {
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            changed();
+        });
+        let err = tokio::time::timeout(Duration::from_secs(5), tls.read(&mut [0; 64])).await.expect("the network change did not end the wait under TLS").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::ConnectionAborted);
         assert!(started.elapsed() < Duration::from_secs(5));
     }
 
